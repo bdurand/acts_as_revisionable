@@ -121,22 +121,27 @@ class RevisionRecord < ActiveRecord::Base
     begin
       if reflection.macro == :has_many
         if attributes.kind_of?(Array)
+          record.send(association).clear
           attributes.each do |association_attributes|
-            record.send(association).clear
             restore_association(record, association, association_attributes)
           end
         else
           associated_record = record.send(association).build
+          associated_record.id = attributes['id']
+          exists = associated_record.class.find(associated_record.id) rescue nil
+          associated_record.instance_variable_set(:@new_record, nil) if exists
         end
       elsif reflection.macro == :has_one
         associated_record = reflection.klass.new
+        associated_record.id = attributes['id']
+        exists = associated_record.class.find(associated_record.id) rescue nil
+        associated_record.instance_variable_set(:@new_record, nil) if exists
         record.send("#{association}=", associated_record)
       elsif reflection.macro == :has_and_belongs_to_many
         record.send("#{association.to_s.singularize}_ids=", attributes)
-        return
       end
-    rescue
-      record.errors.add(association, "could not be restored from the revision")
+    rescue => e
+      record.errors.add(association, "could not be restored from the revision: #{e.message}")
     end
     
     return unless associated_record
