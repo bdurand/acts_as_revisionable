@@ -11,7 +11,11 @@ describe "RevisionRecord" do
     end
     
     def self.reflections
-      {}
+      @reflections || {}
+    end
+    
+    def self.reflections= (vals)
+      @reflections = vals
     end
   
     def id
@@ -37,14 +41,28 @@ describe "RevisionRecord" do
   
   class TestRevisionableAssociationRecord < TestRevisionableRecord
     def self.reflections
-      {}
+      @reflections || {}
+    end
+    
+    def self.reflections= (vals)
+      @reflections = vals
     end
   end
   
   class TestRevisionableSubAssociationRecord < TestRevisionableRecord
     def self.reflections
-      {}
+      @reflections || {}
     end
+    
+    def self.reflections= (vals)
+      @reflections = vals
+    end
+  end
+  
+  before(:each) do
+    TestRevisionableRecord.reflections = nil
+    TestRevisionableAssociationRecord.reflections = nil
+    TestRevisionableSubAssociationRecord.reflections = nil
   end
   
   it "should set the revision number before it creates the record" do
@@ -82,7 +100,7 @@ describe "RevisionRecord" do
     non_revisionable_associations_reflection = stub(:association, :name => :non_revisionable_associations, :macro => :has_many, :options => {})
     
     TestRevisionableRecord.should_receive(:revisionable_associations).and_return(:revisionable_associations => true)
-    TestRevisionableRecord.should_receive(:reflections).and_return({:revisionable_associations => revisionable_associations_reflection, :non_revisionable_associations => non_revisionable_associations_reflection})
+    TestRevisionableRecord.reflections = {:revisionable_associations => revisionable_associations_reflection, :non_revisionable_associations => non_revisionable_associations_reflection}
     original.should_not_receive(:non_revisionable_associations)
     original.should_receive(:revisionable_associations).and_return(revisionable_associations)
     
@@ -99,7 +117,7 @@ describe "RevisionRecord" do
     non_revisionable_association_reflection = stub(:association, :name => :non_revisionable_association, :macro => :has_one, :options => {})
     
     TestRevisionableRecord.should_receive(:revisionable_associations).and_return(:revisionable_association => true)
-    TestRevisionableRecord.should_receive(:reflections).and_return({:revisionable_association => revisionable_association_reflection, :non_revisionable_association => non_revisionable_association_reflection})
+    TestRevisionableRecord.reflections = {:revisionable_association => revisionable_association_reflection, :non_revisionable_association => non_revisionable_association_reflection}
     original.should_not_receive(:non_revisionable_association)
     original.should_receive(:revisionable_association).and_return(revisionable_association)
     
@@ -114,7 +132,7 @@ describe "RevisionRecord" do
     non_revisionable_associations_reflection = stub(:association, :name => :non_revisionable_associations, :macro => :has_and_belongs_to_many, :options => {})
     
     TestRevisionableRecord.should_receive(:revisionable_associations).and_return(:revisionable_associations => true)
-    TestRevisionableRecord.should_receive(:reflections).and_return({:revisionable_associations => revisionable_associations_reflection, :non_revisionable_associations => non_revisionable_associations_reflection})
+    TestRevisionableRecord.reflections = {:revisionable_associations => revisionable_associations_reflection, :non_revisionable_associations => non_revisionable_associations_reflection}
     original.should_receive(:revisionable_association_ids).and_return([2, 3, 4])
     
     revision = RevisionRecord.new(original)
@@ -135,8 +153,8 @@ describe "RevisionRecord" do
     sub_association_reflection = stub(:sub_association, :name => :sub_association, :macro => :has_one, :options => {:dependent => :destroy})
     
     TestRevisionableRecord.should_receive(:revisionable_associations).and_return(:revisionable_associations => {:sub_association => true})
-    TestRevisionableRecord.should_receive(:reflections).and_return({:revisionable_associations => revisionable_associations_reflection})
-    TestRevisionableAssociationRecord.stub!(:reflections).and_return({:sub_association => sub_association_reflection})
+    TestRevisionableRecord.reflections = {:revisionable_associations => revisionable_associations_reflection}
+    TestRevisionableAssociationRecord.reflections = {:sub_association => sub_association_reflection}
     original.should_receive(:revisionable_associations).and_return(revisionable_associations)
     association_1.should_receive(:sub_association).and_return(sub_association)
     association_2.should_receive(:sub_association).and_return(nil)
@@ -161,7 +179,7 @@ describe "RevisionRecord" do
     revision = RevisionRecord.new(TestRevisionableRecord.new)
     revision.data = Zlib::Deflate.deflate(Marshal.dump(attributes))
     associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
-    TestRevisionableRecord.stub!(:reflections).and_return({:associations => associations_reflection})
+    TestRevisionableRecord.reflections = {:associations => associations_reflection}
     TestRevisionableRecord.should_receive(:new).and_return(restored)
     revision.should_receive(:restore_association).with(restored, :associations, {'id' => 2, 'value' => 'val'})
     restored = revision.restore
@@ -172,7 +190,7 @@ describe "RevisionRecord" do
     record = TestRevisionableRecord.new
     
     associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
-    TestRevisionableRecord.stub!(:reflections).and_return({:associations => associations_reflection})
+    TestRevisionableRecord.reflections = {:associations => associations_reflection}
     associations = mock(:associations)
     record.should_receive(:associations).and_return(associations)
     associated_record = TestRevisionableAssociationRecord.new
@@ -188,7 +206,7 @@ describe "RevisionRecord" do
     record = TestRevisionableRecord.new
     
     association_reflection = stub(:associations, :name => :association, :macro => :has_one, :klass => TestRevisionableAssociationRecord, :options => {:dependent => :destroy})
-    TestRevisionableRecord.stub!(:reflections).and_return({:association => association_reflection})
+    TestRevisionableRecord.reflections = {:association => association_reflection}
     associated_record = TestRevisionableAssociationRecord.new
     TestRevisionableAssociationRecord.should_receive(:new).and_return(associated_record)
     record.should_receive(:association=).with(associated_record)
@@ -203,7 +221,7 @@ describe "RevisionRecord" do
     record = TestRevisionableRecord.new
     
     associations_reflection = stub(:associations, :name => :associations, :macro => :has_and_belongs_to_many, :options => {})
-    TestRevisionableRecord.stub!(:reflections).and_return({:associations => associations_reflection})
+    TestRevisionableRecord.reflections = {:associations => associations_reflection}
     record.should_receive(:association_ids=).with([2, 3, 4])
     
     revision.send(:restore_association, record, :associations, [2, 3, 4])
@@ -214,7 +232,7 @@ describe "RevisionRecord" do
     record = TestRevisionableRecord.new
     
     associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
-    TestRevisionableRecord.stub!(:reflections).and_return({:associations => associations_reflection})
+    TestRevisionableRecord.reflections = {:associations => associations_reflection}
     associations = mock(:associations)
     record.should_receive(:associations).and_return(associations)
     associated_record = TestRevisionableAssociationRecord.new
@@ -223,7 +241,7 @@ describe "RevisionRecord" do
     sub_associated_record = TestRevisionableSubAssociationRecord.new
     TestRevisionableAssociationRecord.should_receive(:new).and_return(sub_associated_record)
     sub_association_reflection = stub(:sub_association, :name => :sub_association, :macro => :has_one, :klass => TestRevisionableAssociationRecord, :options => {:dependent => :destroy})
-    TestRevisionableAssociationRecord.stub!(:reflections).and_return({:sub_association => sub_association_reflection})
+    TestRevisionableAssociationRecord.reflections = {:sub_association => sub_association_reflection}
     associated_record.should_receive(:sub_association=).with(sub_associated_record)
     
     revision.send(:restore_association, record, :associations, {'id' => 1, 'value' => 'val', :sub_association => {'id' => 2, 'value' => 'sub'}})
@@ -256,7 +274,7 @@ describe "RevisionRecord" do
     mock_association_errors.should_receive(:add).with(:other, 'could not be restored to "val2"')
     
     associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
-    TestRevisionableRecord.stub!(:reflections).and_return({:associations => associations_reflection})
+    TestRevisionableRecord.reflections = {:associations => associations_reflection}
     
     restored = revision.restore
   end
@@ -273,7 +291,7 @@ describe "RevisionRecord" do
     revision = RevisionRecord.new(TestRevisionableRecord.new(:name => 'name'))
     revision.revision = 20
     time = 2.weeks.ago
-    minimum_age = stub(:integer, :ago => time)
+    minimum_age = stub(:integer, :ago => time, :to_i => 1)
     Time.stub!(:now).and_return(minimum_age)
     RevisionRecord.should_receive(:find).with(:first, :conditions => ['revisionable_type = ? AND revisionable_id = ? AND created_at <= ?', 'TestRevisionableRecord', 1, time], :offset => nil, :order => 'revision DESC').and_return(revision)
     RevisionRecord.should_receive(:delete_all).with(['revisionable_type = ? AND revisionable_id = ? AND revision <= ?', 'TestRevisionableRecord', 1, 20])
