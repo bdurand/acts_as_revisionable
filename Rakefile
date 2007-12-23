@@ -1,15 +1,13 @@
 require 'rake'
-require 'rake/testtask'
 require 'rake/rdoctask'
+require 'spec/rake/spectask'
 
 desc 'Default: run unit tests.'
 task :default => :test
 
 desc 'Test the acts_as_revisionable plugin.'
-Rake::TestTask.new(:test) do |t|
-  t.libs << 'lib'
-  t.pattern = 'test/**/*_test.rb'
-  t.verbose = true
+Spec::Rake::SpecTask.new(:test) do |t|
+  t.spec_files = 'spec/**/*_spec.rb'
 end
 
 desc 'Generate documentation for the acts_as_revisionable plugin.'

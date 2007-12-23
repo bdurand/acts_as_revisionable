@@ -12,18 +12,20 @@ module ActsAsRevisionable
     # for that association with the association name as the key and the value as an array of sub associations.
     # For instance, this declaration will revision :tags, :comments, as well as the :ratings association on :comments:
     #
-    #   :associations => :tags, {:comments => [:ratings]}
+    #   :associations => [:tags, {:comments => [:ratings]}]
     #
     # You can also pass an options of :on_update => true to automatically enable revisioning on every update.
     # Otherwise you will need to perform your updates in a store_revision block. The reason for this is so that
     # revisions for complex models with associations can be better controlled.
+    #
+    # A has_many :revision_records will also be added to the model for accessing the revisions.
     def acts_as_revisionable (options = {})
       write_inheritable_attribute(:acts_as_revisionable_options, options)
       class_inheritable_reader(:acts_as_revisionable_options)
       extend ClassMethods
       include InstanceMethods
       has_many :revision_records, :as => :revisionable, :dependent => :destroy, :order => 'revision DESC'
-      alias_method_chain :update, :revision
+      alias_method_chain :update, :revision if options[:on_update]
     end
   end
   
@@ -95,9 +97,8 @@ module ActsAsRevisionable
     # Call this method to implement revisioning. The object changes should happen inside the block.
     def store_revision
       if new_record? or @revisions_disabled
-        yield
+        return yield
       else
-        @update_without_revision_called = nil
         retval = nil
         revision = nil
         begin
@@ -112,7 +113,6 @@ module ActsAsRevisionable
               retval = yield
             end
             
-            raise 'update_not_called' unless @update_without_revision_called
             raise 'rollback_revision' unless errors.empty?
           end
         rescue => e
@@ -120,7 +120,7 @@ module ActsAsRevisionable
           if revision
             revision.destroy rescue nil
           end
-          raise e unless e.message == 'rollback_revision' or e.message == 'update_not_called'
+          raise e unless e.message == 'rollback_revision'
         end
         return retval
       end
@@ -142,29 +142,23 @@ module ActsAsRevisionable
     # Disable the revisioning behavior inside of a block passed to the method.
     def disable_revisioning
       save_val = @revisions_disabled
+      retval = nil
       begin
         @revisions_disabled = true
-        yield if block_given?
+        retval = yield if block_given?
       ensure
         @revisions_disabled = save_val
       end
+      return retval
     end
     
     private
     
     # This is the update call that overrides the default update method.
     def update_with_revision
-      retval = nil
-      if acts_as_revisionable_options[:on_update]
-        store_revision do
-          retval = update_without_revision
-          @update_without_revision_called = true
-        end
-      else
-        retval = update_without_revision
-        @update_without_revision_called = true
+      store_revision do
+        update_without_revision
       end
-      return retval
     end
   end
   

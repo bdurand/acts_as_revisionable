@@ -52,7 +52,7 @@ describe "ActsAsRevisionable" do
     record.stub!(:new_record?).and_return(true)
   end
   
-  it "should handle storing revisions only if update is called in a block" do
+  it "should handle storing revisions" do
     record = TestRevisionableModel.new
     record.id = 1
     record.stub!(:new_record?).and_return(nil)
@@ -81,11 +81,14 @@ describe "ActsAsRevisionable" do
     RevisionRecord.should_receive(:transaction).and_yield
     read_only_record.should_receive(:create_revision!).and_return(revision)
     record.should_receive(:truncate_revisions!).with()
-    record.should_receive(:update).and_raise("update failed")
+    record.should_receive(:really_update).and_raise("update failed")
     revision.should_receive(:destroy)
     
-    record.store_revision do
-      record.send(:update) rescue nil
+    begin
+      record.store_revision do
+        record.send(:update)
+      end
+    rescue
     end
   end
   
@@ -118,15 +121,8 @@ describe "ActsAsRevisionable" do
   
   it "should create a revision entry when a model is updated if :on_update is true" do
     record = TestRevisionableModel.new
-    record.should_receive(:store_revision).and_yield
-    record.should_receive(:really_update).and_return(:retval)
-    record.send(:update).should == :retval
-  end
-  
-  it "should not create a revision entry when a model is updated if :on_update is true" do
-    record = TestRevisionableModel.new
-    TestRevisionableModel.stub!(:acts_as_revisionable_options).and_return({})
-    record.should_not_receive(:store_revision)
+    record.should_receive(:new_record?).and_return(false)
+    record.should_receive(:errors).and_return([])
     record.should_receive(:really_update).and_return(:retval)
     record.send(:update).should == :retval
   end

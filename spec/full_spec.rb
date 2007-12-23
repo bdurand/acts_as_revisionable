@@ -118,9 +118,12 @@ describe "ActsAsRevisionable Full Test" do
     
     model.should_receive(:update).and_raise("update failed")
     model.name = 'new_name'
-    model.store_revision do
-      RevisionRecord.count.should == 1
-      model.update rescue nil
+    begin
+      model.store_revision do
+        RevisionRecord.count.should == 1
+        model.update
+      end
+    rescue
     end
     RevisionRecord.count.should == 0
   end
@@ -138,20 +141,6 @@ describe "ActsAsRevisionable Full Test" do
       RevisionRecord.count.should == 1
       model.save!
       model.errors.add(:name, "isn't right")
-    end
-    RevisionRecord.count.should == 0
-  end
-  
-  it "should not save a revision if update is never called" do
-    model = RevisionableTestModel.new(:name => 'test')
-    model.store_revision do
-      model.save!
-    end
-    model.reload
-    RevisionRecord.count.should == 0
-    
-    model.store_revision do
-      RevisionRecord.count.should == 1
     end
     RevisionRecord.count.should == 0
   end
