@@ -8,7 +8,7 @@ class RevisionRecord < ActiveRecord::Base
   # be serialized. If it uses the acts_as_revisionable behavior, associations will be revisioned as well.
   def initialize (record)
     super({})
-    self.revisionable_type = record.class.name
+    self.revisionable_type = record.class.base_class.name
     self.revisionable_id = record.id
     associations = record.class.revisionable_associations if record.class.respond_to?(:revisionable_associations)
     self.data = Zlib::Deflate.deflate(Marshal.dump(serialize_attributes(record, associations)))
@@ -25,10 +25,21 @@ class RevisionRecord < ActiveRecord::Base
   # will be added to the errors object of the restored record.
   def restore
     restore_class = self.revisionable_type.constantize
+    
+    # Check if we have a type field, if yes, assume single table inheritance and restore the actual class instead of the stored base class
+    sti_type = self.revision_attributes[restore_class.inheritance_column]
+    if sti_type
+      begin
+        restore_class = restore_class.send(:type_name_with_module, sti_type).constantize
+      rescue NameError
+        raise
+        # Seems our assumption was wrong and we have no STI
+      end
+    end
+    
     attrs, association_attrs = attributes_and_associations(restore_class, self.revision_attributes)
     
     record = restore_class.new
-    record.instance_variable_set(:@new_record, nil)
     attrs.each_pair do |key, value|
       begin
         record.send("#{key}=", value)
@@ -41,19 +52,21 @@ class RevisionRecord < ActiveRecord::Base
       restore_association(record, association, attribute_values)
     end
     
+    record.instance_variable_set(:@new_record, nil)
+    
     return record
   end
   
   # Find a specific revision record.
   def self.find_revision (klass, id, revision)
-    find(:first, :conditions => {:revisionable_type => klass.to_s, :revisionable_id => id, :revision => revision})
+    find(:first, :conditions => {:revisionable_type => klass.base_class.to_s, :revisionable_id => id, :revision => revision})
   end
   
   # Truncate the revisions for a record. Available options are :limit and :max_age.
   def self.truncate_revisions (revisionable_type, revisionable_id, options)
     return unless options[:limit] or options[:minimum_age]
     
-    conditions = ['revisionable_type = ? AND revisionable_id = ?', revisionable_type.to_s, revisionable_id]
+    conditions = ['revisionable_type = ? AND revisionable_id = ?', revisionable_type.base_class.to_s, revisionable_id]
     if options[:minimum_age]
       conditions.first << ' AND created_at <= ?'
       conditions << options[:minimum_age].ago
@@ -61,7 +74,7 @@ class RevisionRecord < ActiveRecord::Base
     
     start_deleting_revision = find(:first, :conditions => conditions, :order => 'revision DESC', :offset => options[:limit])
     if start_deleting_revision
-      delete_all(['revisionable_type = ? AND revisionable_id = ? AND revision <= ?', revisionable_type.to_s, revisionable_id, start_deleting_revision.revision])
+      delete_all(['revisionable_type = ? AND revisionable_id = ? AND revision <= ?', revisionable_type.base_class.to_s, revisionable_id, start_deleting_revision.revision])
     end
   end
   
@@ -114,31 +127,30 @@ class RevisionRecord < ActiveRecord::Base
     return [attrs, association_attrs]
   end
   
-  def restore_association (record, association, attributes)
+  def restore_association (record, association, association_attributes)
     reflection = record.class.reflections[association]
     associated_record = nil
+    exists = false
     
     begin
       if reflection.macro == :has_many
-        if attributes.kind_of?(Array)
-          record.send(association).clear
-          attributes.each do |association_attributes|
-            restore_association(record, association, association_attributes)
+        if association_attributes.kind_of?(Array)
+          record.send("#{association}=".to_sym, [])
+          association_attributes.each do |attrs|
+            restore_association(record, association, attrs)
           end
         else
           associated_record = record.send(association).build
-          associated_record.id = attributes['id']
+          associated_record.id = association_attributes['id']
           exists = associated_record.class.find(associated_record.id) rescue nil
-          associated_record.instance_variable_set(:@new_record, nil) if exists
         end
       elsif reflection.macro == :has_one
         associated_record = reflection.klass.new
-        associated_record.id = attributes['id']
+        associated_record.id = association_attributes['id']
         exists = associated_record.class.find(associated_record.id) rescue nil
-        associated_record.instance_variable_set(:@new_record, nil) if exists
         record.send("#{association}=", associated_record)
       elsif reflection.macro == :has_and_belongs_to_many
-        record.send("#{association.to_s.singularize}_ids=", attributes)
+        record.send("#{association.to_s.singularize}_ids=", association_attributes)
       end
     rescue => e
       record.errors.add(association, "could not be restored from the revision: #{e.message}")
@@ -146,7 +158,7 @@ class RevisionRecord < ActiveRecord::Base
     
     return unless associated_record
     
-    attrs, association_attrs = attributes_and_associations(associated_record.class, attributes)
+    attrs, association_attrs = attributes_and_associations(associated_record.class, association_attributes)
     attrs.each_pair do |key, value|
       begin
         associated_record.send("#{key}=", value)
@@ -159,6 +171,8 @@ class RevisionRecord < ActiveRecord::Base
     association_attrs.each_pair do |key, values|
       restore_association(associated_record, key, values)
     end
+    
+    associated_record.instance_variable_set(:@new_record, nil) if exists
   end
   
 end

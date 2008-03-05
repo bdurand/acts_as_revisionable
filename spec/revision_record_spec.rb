@@ -6,6 +6,14 @@ describe "RevisionRecord" do
   class TestRevisionableRecord
     attr_accessor :attributes
     
+    def self.base_class
+      self
+    end
+    
+    def self.inheritance_column
+      'type'
+    end
+    
     def initialize (attributes = {})
       @attributes = attributes
     end
@@ -37,6 +45,10 @@ describe "RevisionRecord" do
     def self.revisionable_associations
       nil
     end
+    
+    def self.type_name_with_module (type_name)
+      type_name
+    end
   end
   
   class TestRevisionableAssociationRecord < TestRevisionableRecord
@@ -56,6 +68,25 @@ describe "RevisionRecord" do
     
     def self.reflections= (vals)
       @reflections = vals
+    end
+  end
+  
+  module ActsAsRevisionable
+    class TestModuleRecord < TestRevisionableRecord
+    end
+  end
+  
+  class TestInheritanceRecord < TestRevisionableRecord
+    def self.base_class
+      TestRevisionableRecord
+    end
+    
+    def initialize (attributes = {})
+      super({'type' => 'TestInheritanceRecord'}.merge(attributes))
+    end
+    
+    def type= (val)
+      attributes['type'] = val
     end
   end
   
@@ -314,6 +345,23 @@ describe "RevisionRecord" do
     revision = RevisionRecord.new(TestRevisionableRecord.new(:name => 'name'))
     RevisionRecord.should_receive(:find).with(:first, :conditions => {:revisionable_type => 'TestRevisionableRecord', :revisionable_id => 1, :revision => 2}).and_return(revision)
     RevisionRecord.find_revision(TestRevisionableRecord, 1, 2).should == revision
+  end
+  
+  it "should handle module namespaces" do
+    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
+    revision = RevisionRecord.new(ActsAsRevisionable::TestModuleRecord.new(attributes))
+    revision.data = Zlib::Deflate.deflate(Marshal.dump(attributes))
+    restored = revision.restore
+    restored.class.should == ActsAsRevisionable::TestModuleRecord
+  end
+  
+  it "should handle single table inheritance" do
+    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
+    record = TestInheritanceRecord.new(attributes)
+    revision = RevisionRecord.new(record)
+    revision.data = Zlib::Deflate.deflate(Marshal.dump(record.attributes))
+    restored = revision.restore
+    restored.class.should == TestInheritanceRecord
   end
   
   it "should really save the revision records to the database and restore without any mocking" do

@@ -37,6 +37,8 @@ The revision will only be saved if the block successfully updates the record to 
 
 You can restore revisions into an object in memory by calling restore_revision with the revision number. This will return a new object with all the attributes and associations restored from the revision record. The object will not have been saved yet to the database. If any errors were encountered restoring an attribute or association, an error will be added to the record errors. This should make it easy to reuse the model's edit interface for restoring the revision. You can also call restore_revision! to restore the record and save it and all it's associations.
 
+If you are revisioning associations, you should always call restore_revision! instead of simply restoring the revision and calling save. Otherwise associations added since the revision will not be removed. This is a limitation on how active record handles removing revisions.
+
 == Migration
 
 A migration is included in the migrations directory which must be run before using this plugin.
