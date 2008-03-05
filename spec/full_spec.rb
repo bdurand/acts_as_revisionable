@@ -72,6 +72,21 @@ describe "ActsAsRevisionable Full Test" do
           self[:secret] = val
         end
       end
+
+      module ActsAsRevisionable
+        class RevisionableNamespaceModel < ActiveRecord::Base
+          ActiveRecord::Migration.create_table(:revisionable_namespace_models) do |t|
+            t.column :name, :string
+            t.column :type_name, :string
+          end unless table_exists?
+          
+          set_inheritance_column :type_name
+          acts_as_revisionable
+        end
+        
+        class RevisionableSubclassModel < RevisionableNamespaceModel
+        end
+      end
     end
   end
   
@@ -84,6 +99,7 @@ describe "ActsAsRevisionable Full Test" do
       ActiveRecord::Migration.drop_table(:revisionable_test_one_things) if RevisionableTestOneThing.table_exists?
       ActiveRecord::Migration.drop_table(:non_revisionable_test_models_revisionable_test_models) if NonRevisionableTestModelsRevisionableTestModel.table_exists?
       ActiveRecord::Migration.drop_table(:non_revisionable_test_models) if NonRevisionableTestModel.table_exists?
+      ActiveRecord::Migration.drop_table(:revisionable_namespace_models) if ActsAsRevisionable::RevisionableNamespaceModel.table_exists?
     end
   end
   
@@ -96,6 +112,7 @@ describe "ActsAsRevisionable Full Test" do
     NonRevisionableTestModelsRevisionableTestModel.delete_all
     NonRevisionableTestModel.delete_all
     RevisionRecord.delete_all
+    ActsAsRevisionable::RevisionableNamespaceModel.delete_all
   end
   
   it "should only store revisions in a store revision block if :on_update is not true" do
@@ -229,6 +246,7 @@ describe "ActsAsRevisionable Full Test" do
     model.many_things.detect{|t| t.name == 'new_many_thing_1'}.sub_things.collect{|t| t.name}.sort.should == ['new_sub_thing_1', 'sub_thing_3']
     model.many_other_things.collect{|t| t.name}.sort.should == ['many_other_thing_3', 'new_many_other_thing_1']
     
+    # restore to memory
     restored = model.restore_revision(1)
     restored.name.should == 'test'
     restored.id.should == model.id
@@ -236,8 +254,15 @@ describe "ActsAsRevisionable Full Test" do
     restored.many_things.detect{|t| t.name == 'many_thing_1'}.sub_things.collect{|t| t.name}.sort.should == ['sub_thing_1', 'sub_thing_2']
     restored.many_other_things.collect{|t| t.name}.sort.should == ['many_other_thing_3', 'new_many_other_thing_1']
     restored.valid?.should == true
-    model.restore_revision!(1)
     
+    # make the restore to memory didn't affect the database
+    model.reload
+    model.name.should == 'new_name'
+    model.many_things.collect{|t| t.name}.sort.should == ['many_thing_3', 'new_many_thing_1']
+    model.many_things.detect{|t| t.name == 'new_many_thing_1'}.sub_things.collect{|t| t.name}.sort.should == ['new_sub_thing_1', 'sub_thing_3']
+    model.many_other_things.collect{|t| t.name}.sort.should == ['many_other_thing_3', 'new_many_other_thing_1']
+    
+    model.restore_revision!(1)
     RevisionableTestModel.count.should == 1
     RevisionableTestManyThing.count.should == 2
     RevisionableTestSubThing.count.should == 3
@@ -267,6 +292,19 @@ describe "ActsAsRevisionable Full Test" do
       model.one_thing.save!
       model.save!
     end
+    
+    model.reload
+    RevisionRecord.count.should == 1
+    model.name.should == 'new_name'
+    model.one_thing.name.should == 'new_other'
+    
+    # restore to memory
+    restored = model.restore_revision(1)
+    restored.name.should == 'test'
+    restored.one_thing.name.should == 'other'
+    restored.one_thing.id.should == model.one_thing.id
+    
+    # make sure restore to memory didn't affect the database
     model.reload
     RevisionRecord.count.should == 1
     model.name.should == 'new_name'
@@ -302,9 +340,20 @@ describe "ActsAsRevisionable Full Test" do
       other_1.save!
       model.save!
     end
+    
     model.reload
     RevisionRecord.count.should == 1
     NonRevisionableTestModel.count.should == 3
+    model.name.should == 'new_name'
+    model.non_revisionable_test_models.collect{|r| r.name}.sort.should == ['111', '333']
+    
+    # restore to memory
+    restored = model.restore_revision(1)
+    restored.name.should == 'test'
+    restored.non_revisionable_test_models.collect{|r| r.name}.sort.should == ['111', 'two']
+    
+    # make sure the restore to memory didn't affect the database
+    model.reload
     model.name.should == 'new_name'
     model.non_revisionable_test_models.collect{|r| r.name}.sort.should == ['111', '333']
     
@@ -316,6 +365,51 @@ describe "ActsAsRevisionable Full Test" do
     restored_model = RevisionableTestModel.find(model.id)
     restored_model.name.should == 'test'
     restored_model.non_revisionable_test_models.collect{|r| r.name}.sort.should == ['111', 'two']
+  end
+  
+  it "should handle namespaces and single table inheritance" do
+    model = ActsAsRevisionable::RevisionableNamespaceModel.new(:name => 'test')
+    model.store_revision do
+      model.save!
+    end
+    model.reload
+    RevisionRecord.count.should == 0
+    
+    model.name = 'new_name'
+    model.store_revision do
+      model.save!
+    end
+    model.reload
+    RevisionRecord.count.should == 1
+    model.name.should == 'new_name'
+    
+    restored = model.restore_revision(1)
+    restored.class.should == ActsAsRevisionable::RevisionableNamespaceModel
+    restored.name.should == 'test'
+    restored.id.should == model.id
+  end
+  
+  it "should handle single table inheritance" do
+    model = ActsAsRevisionable::RevisionableSubclassModel.new(:name => 'test')
+    model.store_revision do
+      model.save!
+    end
+    model.reload
+    RevisionRecord.count.should == 0
+    
+    model.name = 'new_name'
+    model.store_revision do
+      model.save!
+    end
+    model.reload
+    RevisionRecord.count.should == 1
+    model.name.should == 'new_name'
+    
+    restored = model.restore_revision(1)
+    restored.class.should == ActsAsRevisionable::RevisionableSubclassModel
+    restored.name.should == 'test'
+    restored.id.should == model.id
+    restored.type_name.should == 'RevisionableSubclassModel'
   end
   
 end

@@ -30,13 +30,16 @@ module ActsAsRevisionable
   end
   
   module ClassMethods
-    # Load a revision for a record with a particular id.
+    # Load a revision for a record with a particular id. If this revision has association it
+    # will not delete associated records added since the revision was added if you save it.
+    # If you want to save a revision with associations properly, use restore_revision!
     def restore_revision (id, revision)
       revision = RevisionRecord.find_revision(self, id, revision)
       return revision.restore if revision
     end
 
-    # Load a revision for a record with a particular id and save it to the database.
+    # Load a revision for a record with a particular id and save it to the database. You should
+    # always use this method to save a revision if it has associations.
     def restore_revision! (id, revision)
       record = restore_revision(id, revision)
       if record
@@ -71,9 +74,26 @@ module ActsAsRevisionable
         if associations.kind_of?(Hash)
           associations.each_pair do |association, sub_associations|
             associated_records = record.send(association)
-            associated_records = [associated_records] unless associated_records.kind_of?(Array)
-            associated_records.each do |associated_record|
-              save_restorable_associations(associated_record, sub_associations) if associated_record
+            reflection = record.class.reflections[association].macro
+            
+            if reflection == :has_and_belongs_to_many
+              associated_records = associated_records.collect{|r| r}
+              record.send(association, true).clear
+              associated_records.each do |assoc_record|
+                record.send(association) << assoc_record
+              end
+            else
+              if reflection == :has_many
+                existing = associated_records.find(:all)
+                existing.each do |existing_association|
+                  associated_records.delete(existing_association) unless associated_records.include?(existing_association)
+                end
+              end
+            
+              associated_records = [associated_records] unless associated_records.kind_of?(Array)
+              associated_records.each do |associated_record|
+                save_restorable_associations(associated_record, sub_associations) if associated_record
+              end
             end
           end
         end
