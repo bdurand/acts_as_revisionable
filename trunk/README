@@ -1,0 +1,48 @@
+= Acts As Revisionable
+
+This plugin can handle automatically keeping revisions of a model each time it is updated. It is intended to allow you to keep a history of changes that can be reviewed or restored. The functionality is very similar to that offered by the ActsAsVersioned[http://wiki.rubyonrails.org/rails/pages/ActsAsVersioned] plugin. However the implementation is quite different with several advantages for some applications. Associations revisions can be tracked from the main record and the storage implementation is simpler and requires less space from your database.
+
+To make any ActiveRecord model revisionable, simply declare acts_as_revisionable in the class definition. Revisions are only added when a record is updated, so newly created records don't have revisions. This is intentional to reduce the number of revisions that need to be kept. In many applications, the majority of records are created once and never edited and adding the revision on create ends up at least doubling your storage needs. The attributes of the original record are serialized and compressed for in the revision record to minimize the amount of disk space used. Finally, you can limit the number of associations that are kept at any one time by supplying a :limit option to the acts_as_revisionable statement:
+
+  acts_as_revisionable :limit => 25
+
+You can insure that revisions are kept for a minimum length of time by specifying :minimum_age:
+
+  acts_as_revisionable :limit => 15, :minimum_age => 2.weeks
+
+Revisions are accessible on a record via a has_many :revision_records association. The revision records are sorted in reverse order. The revisions will be destroyed along with the parent record.
+
+== Associations
+
+You can specify associations that you'd like to include in each revision by providing a list of them with the :associations key to the acts_as_revisionable options hash. You can either provide a symbol with the association name or, if you'd like to include sub-associations, a hash with the association name as the key and the value as a list of sub-associations to include. These are are valid :associations values:
+
+  :associations => :comments  # include has_many :comments in the revision
+  :associations => [:comments, :tags]  # include both :comments and :tags
+  :associations => [{:comments => :ratings}, :tags]  # include both :comments and :tags as well as has_many :ratings on the comments
+
+You can only revision has_many, has_one, and has_and_belongs_to_many associations. You cannot revision belongs_to.
+
+== Storing Revisions
+
+Normally, revisions are only created when an update is done inside of a store_revision block. You can make this behavior automatic on update by specifying :on_update => true in the acts_as_revisionable call. This can be handy if you have a simple records without associations. If you do have associations in your model, you should not use this feature because you may end up revisioning associations in an indeterminate state. In this case, surround all your update statements with a store_revision block:
+
+  store_revision do
+    model.update_has_many_records(params[:has_many])
+		model.save!
+	end
+	
+The revision will only be saved if the block successfully updates the record to the database.
+
+== Restoring Revisions
+
+You can restore revisions into an object in memory by calling restore_revision with the revision number. This will return a new object with all the attributes and associations restored from the revision record. The object will not have been saved yet to the database. If any errors were encountered restoring an attribute or association, an error will be added to the record errors. This should make it easy to reuse the model's edit interface for restoring the revision. You can also call restore_revision! to restore the record and save it and all it's associations.
+
+If you are revisioning associations, you should always call restore_revision! instead of simply restoring the revision and calling save. Otherwise associations added since the revision will not be removed. This is a limitation on how active record handles removing revisions.
+
+== Migration
+
+A migration is included in the migrations directory which must be run before using this plugin.
+
+== Destroying
+
+Since the revision history of a record is destroyed along with the record, you could be at risk of losing your revision history. However, this plugin was developed as a companion to the ActsAsTrashable[http://actsastrashable.rubyforge.org/] plugin. With this plugin, you can store destroyed records for a set period along with all dependent associations. Both plugins use similar code and interfaces. It is recommended that you always use ActsAsTrashable along side of ActsAsRevisioned.
