@@ -81,7 +81,7 @@ describe "ActsAsRevisionable Full Test" do
           end unless table_exists?
           
           set_inheritance_column :type_name
-          acts_as_revisionable :dependent => :keep
+          acts_as_revisionable :dependent => :keep, :encoding => :xml
         end
         
         class RevisionableSubclassModel < RevisionableNamespaceModel

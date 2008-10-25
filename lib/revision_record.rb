@@ -88,16 +88,20 @@ class RevisionRecord < ActiveRecord::Base
     case encoding.to_sym
     when :yaml
       return YAML.dump(hash)
+    when :xml
+      return hash.to_xml(:root => 'revision')
     else
       return Marshal.dump(hash)
     end
   end
   
   def deserialize_hash (data)
-    begin
-      return Marshal.load(data)
-    rescue
+    if data.starts_with?('---')
       return YAML.load(data)
+    elsif data.starts_with?('<?xml')
+      return Hash.from_xml(data)['revision']
+    else
+      return Marshal.load(data)
     end
   end
   
@@ -114,17 +118,18 @@ class RevisionRecord < ActiveRecord::Base
     if revisionable_associations.kind_of?(Hash)
       record.class.reflections.values.each do |association|
         if revisionable_associations[association.name]
+          assoc_name = association.name.to_s
           if association.macro == :has_many
-            attrs[association.name] = record.send(association.name).collect{|r| serialize_attributes(r, revisionable_associations[association.name], already_serialized)}
+            attrs[assoc_name] = record.send(association.name).collect{|r| serialize_attributes(r, revisionable_associations[association.name], already_serialized)}
           elsif association.macro == :has_one
             associated = record.send(association.name)
             unless associated.nil?
-              attrs[association.name] = serialize_attributes(associated, revisionable_associations[association.name], already_serialized)
+              attrs[assoc_name] = serialize_attributes(associated, revisionable_associations[association.name], already_serialized)
             else
-              attrs[association.name.to_s] = nil
+              attrs[assoc_name] = nil
             end
           elsif association.macro == :has_and_belongs_to_many
-            attrs[association.name] = record.send("#{association.name.to_s.singularize}_ids".to_sym)
+            attrs[assoc_name] = record.send("#{association.name.to_s.singularize}_ids".to_sym)
           end
         end
       end
@@ -137,11 +142,13 @@ class RevisionRecord < ActiveRecord::Base
     attrs = {}
     association_attrs = {}
     
-    hash.each_pair do |key, value|
-      if klass.reflections.include?(key)
-        association_attrs[key] = value
-      else
-        attrs[key] = value
+    if hash
+      hash.each_pair do |key, value|
+        if klass.reflections.include?(key.to_sym)
+          association_attrs[key] = value
+        else
+          attrs[key] = value
+        end
       end
     end
     
@@ -149,6 +156,7 @@ class RevisionRecord < ActiveRecord::Base
   end
   
   def restore_association (record, association, association_attributes)
+    association = association.to_sym
     reflection = record.class.reflections[association]
     associated_record = nil
     exists = false
