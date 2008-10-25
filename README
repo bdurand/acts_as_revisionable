@@ -41,7 +41,7 @@ If you are revisioning associations, you should always call restore_revision! in
 
 == Serialization
 
-By default revisions are serialized using Ruby's Marshal class. This is the most reliable mechanism, but the least portable. As an alternative, you can specify :encoding => :yaml in the acts_as_revisionalbe options. This will store the data as YAML. There are some issues with the Ruby 1.8 YAML parser where some values are not deserialized properly, so only use this option if you really need the portability.
+By default revisions are serialized using Ruby's Marshal class. This is the most reliable mechanism, but the least portable. As an alternative, you can specify :encoding => :yaml in the acts_as_revisionalbe options. This will store the data as YAML. There are some issues with the Ruby 1.8 YAML parser where some values are not deserialized properly, so only use this option if you really need the portability. You can specify :encoding => :xml to store the revisions as XML. This should work fine unless the record contains binary data.
 
 == Migration
 
