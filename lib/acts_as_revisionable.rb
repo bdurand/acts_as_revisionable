@@ -24,8 +24,9 @@ module ActsAsRevisionable
       class_inheritable_reader(:acts_as_revisionable_options)
       extend ClassMethods
       include InstanceMethods
-      dependency = (options[:dependent] == :keep ? nil : :destroy)
-      has_many :revision_records, :as => :revisionable, :dependent => dependency, :order => 'revision DESC'
+      has_many_options = {:as => :revisionable, :order => 'revision DESC'}
+      has_many_options[:dependent] = :destroy unless options[:dependent] == :keep 
+      has_many :revision_records, has_many_options
       alias_method_chain :update, :revision if options[:on_update]
     end
   end

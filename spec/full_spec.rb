@@ -81,7 +81,7 @@ describe "ActsAsRevisionable Full Test" do
           end unless table_exists?
           
           set_inheritance_column :type_name
-          acts_as_revisionable
+          acts_as_revisionable :dependent => :keep
         end
         
         class RevisionableSubclassModel < RevisionableNamespaceModel
@@ -410,6 +410,46 @@ describe "ActsAsRevisionable Full Test" do
     restored.name.should == 'test'
     restored.id.should == model.id
     restored.type_name.should == 'RevisionableSubclassModel'
+  end
+  
+  it "should destroy revisions if :dependent => :keep was not specified" do
+    model = RevisionableTestModel.new(:name => 'test')
+    model.store_revision do
+      model.save!
+    end
+    model.reload
+    RevisionRecord.count.should == 0
+    
+    model.name = 'new_name'
+    model.store_revision do
+      model.save!
+    end
+    model.reload
+    RevisionRecord.count.should == 1
+    model.name.should == 'new_name'
+    
+    model.destroy
+    RevisionRecord.count.should == 0
+  end
+  
+  it "should not destroy revisions if :dependent => :keep was specified" do
+    model = ActsAsRevisionable::RevisionableSubclassModel.new(:name => 'test')
+    model.store_revision do
+      model.save!
+    end
+    model.reload
+    RevisionRecord.count.should == 0
+    
+    model.name = 'new_name'
+    model.store_revision do
+      model.save!
+    end
+    model.reload
+    RevisionRecord.count.should == 1
+    model.name.should == 'new_name'
+    
+    model.destroy
+    RevisionRecord.count.should == 1
   end
   
 end
