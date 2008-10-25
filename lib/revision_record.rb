@@ -1,24 +1,27 @@
 require 'zlib'
+require 'yaml'
 
 class RevisionRecord < ActiveRecord::Base
   
   before_create :set_revision_number
+  attr_reader :data_encoding
   
   # Create a revision record based on a record passed in. The attributes of the original record will
   # be serialized. If it uses the acts_as_revisionable behavior, associations will be revisioned as well.
-  def initialize (record)
+  def initialize (record, encoding = :ruby)
     super({})
+    @data_encoding = encoding
     self.revisionable_type = record.class.base_class.name
     self.revisionable_id = record.id
     associations = record.class.revisionable_associations if record.class.respond_to?(:revisionable_associations)
-    self.data = Zlib::Deflate.deflate(Marshal.dump(serialize_attributes(record, associations)))
+    self.data = Zlib::Deflate.deflate(serialize_hash(serialize_attributes(record, associations)))
   end
   
   # Returns the attributes that are saved in the revision.
   def revision_attributes
     return nil unless self.data
     uncompressed = Zlib::Inflate.inflate(self.data)
-    Marshal.load(uncompressed)
+    deserialize_hash(uncompressed)
   end
   
   # Restore the revision to the original record. If any errors are encountered restoring attributes, they
@@ -79,6 +82,24 @@ class RevisionRecord < ActiveRecord::Base
   end
   
   private
+  
+  def serialize_hash (hash)
+    encoding = data_encoding.blank? ? :ruby : data_encoding
+    case encoding.to_sym
+    when :yaml
+      return YAML.dump(hash)
+    else
+      return Marshal.dump(hash)
+    end
+  end
+  
+  def deserialize_hash (data)
+    begin
+      return Marshal.load(data)
+    rescue
+      return YAML.load(data)
+    end
+  end
   
   def set_revision_number
     last_revision = self.class.maximum(:revision, :conditions => {:revisionable_type => self.revisionable_type, :revisionable_id => self.revisionable_id}) || 0

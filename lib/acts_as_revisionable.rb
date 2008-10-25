@@ -24,7 +24,8 @@ module ActsAsRevisionable
       class_inheritable_reader(:acts_as_revisionable_options)
       extend ClassMethods
       include InstanceMethods
-      has_many :revision_records, :as => :revisionable, :dependent => :destroy, :order => 'revision DESC'
+      dependency = (options[:dependent] == :keep ? nil : :destroy)
+      has_many :revision_records, :as => :revisionable, :dependent => dependency, :order => 'revision DESC'
       alias_method_chain :update, :revision if options[:on_update]
     end
   end
@@ -148,7 +149,7 @@ module ActsAsRevisionable
     
     # Create a revision record based on this record and save it to the database.
     def create_revision!
-      revision = RevisionRecord.new(self)
+      revision = RevisionRecord.new(self, acts_as_revisionable_options[:encoding])
       revision.save!
       return revision
     end

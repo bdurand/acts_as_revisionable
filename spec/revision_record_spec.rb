@@ -194,9 +194,9 @@ describe "RevisionRecord" do
     revision.revision_attributes.should == attributes.merge(:revisionable_associations => [association_attributes_1.merge(:sub_association => sub_association_attributes), association_attributes_2.merge('sub_association' => nil)])
   end
   
-  it "should be able to restore the original model" do
+  it "should be able to restore the original model using Ruby serialization" do
     attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
-    revision = RevisionRecord.new(TestRevisionableRecord.new(attributes))
+    revision = RevisionRecord.new(TestRevisionableRecord.new(attributes), :ruby)
     revision.data = Zlib::Deflate.deflate(Marshal.dump(attributes))
     restored = revision.restore
     restored.class.should == TestRevisionableRecord
@@ -204,6 +204,36 @@ describe "RevisionRecord" do
     restored.attributes.should == attributes
   end
   
+  it "should be able to restore the original model using YAML serialization" do
+    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
+    revision = RevisionRecord.new(TestRevisionableRecord.new(attributes), :yaml)
+    revision.data = Zlib::Deflate.deflate(YAML.dump(attributes))
+    restored = revision.restore
+    restored.class.should == TestRevisionableRecord
+    restored.id.should == 1
+    restored.attributes.should == attributes
+  end
+    
+  it "should be able to restore the original model using YAML serialization even if Ruby serializaation was specified" do
+    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
+    revision = RevisionRecord.new(TestRevisionableRecord.new(attributes), :ruby)
+    revision.data = Zlib::Deflate.deflate(YAML.dump(attributes))
+    restored = revision.restore
+    restored.class.should == TestRevisionableRecord
+    restored.id.should == 1
+    restored.attributes.should == attributes
+  end
+
+  it "should be able to restore the original model using Ruby serialization even if YAML serializaation was specified" do
+    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
+    revision = RevisionRecord.new(TestRevisionableRecord.new(attributes), :yaml)
+    revision.data = Zlib::Deflate.deflate(Marshal.dump(attributes))
+    restored = revision.restore
+    restored.class.should == TestRevisionableRecord
+    restored.id.should == 1
+    restored.attributes.should == attributes
+  end
+    
   it "should be able to restore associations" do
     restored = TestRevisionableRecord.new
     attributes = {'id' => 1, 'name' => 'revision', 'value' => Time.now, :associations => {'id' => 2, 'value' => 'val'}}
