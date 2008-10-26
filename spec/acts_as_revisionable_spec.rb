@@ -26,7 +26,7 @@ describe "ActsAsRevisionable" do
     
     private :update
     
-    acts_as_revisionable :limit => 10, :on_update => true, :associations => [:one, {:two => :two_1, :three => [:three_1, :three_2]}, {:four => :four_1}]
+    acts_as_revisionable :limit => 10, :on_update => true, :associations => [:one, {:two => :two_1, :three => [:three_1, :three_2]}, {:four => :four_1}], :encoding => :encoding
   end
   
   it "should be able to inject revisionable behavior onto ActiveRecord::Base" do
@@ -114,7 +114,7 @@ describe "ActsAsRevisionable" do
   it "should be able to create a revision record" do
     record = TestRevisionableModel.new
     revision = mock(:revision)
-    RevisionRecord.should_receive(:new).with(record).and_return(revision)
+    RevisionRecord.should_receive(:new).with(record, :encoding).and_return(revision)
     revision.should_receive(:save!)
     record.create_revision!.should == revision
   end

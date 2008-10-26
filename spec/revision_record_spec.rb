@@ -136,7 +136,7 @@ describe "RevisionRecord" do
     original.should_receive(:revisionable_associations).and_return(revisionable_associations)
     
     revision = RevisionRecord.new(original)
-    revision.revision_attributes.should == attributes.merge(:revisionable_associations => [association_attributes_1, association_attributes_2])
+    revision.revision_attributes.should == attributes.merge('revisionable_associations' => [association_attributes_1, association_attributes_2])
   end
   
   it "should serialize all the attributes of revisionable has_one associations" do
@@ -153,7 +153,7 @@ describe "RevisionRecord" do
     original.should_receive(:revisionable_association).and_return(revisionable_association)
     
     revision = RevisionRecord.new(original)
-    revision.revision_attributes.should == attributes.merge(:revisionable_association => association_attributes)
+    revision.revision_attributes.should == attributes.merge('revisionable_association' => association_attributes)
   end
   
   it "should serialize all revisionable has_many_and_belongs_to_many associations" do
@@ -167,7 +167,7 @@ describe "RevisionRecord" do
     original.should_receive(:revisionable_association_ids).and_return([2, 3, 4])
     
     revision = RevisionRecord.new(original)
-    revision.revision_attributes.should == attributes.merge(:revisionable_associations => [2, 3, 4])
+    revision.revision_attributes.should == attributes.merge('revisionable_associations' => [2, 3, 4])
   end
   
   it "should serialize revisionable associations of revisionable associations with :dependent => :destroy" do
@@ -191,12 +191,12 @@ describe "RevisionRecord" do
     association_2.should_receive(:sub_association).and_return(nil)
     
     revision = RevisionRecord.new(original)
-    revision.revision_attributes.should == attributes.merge(:revisionable_associations => [association_attributes_1.merge(:sub_association => sub_association_attributes), association_attributes_2.merge('sub_association' => nil)])
+    revision.revision_attributes.should == attributes.merge('revisionable_associations' => [association_attributes_1.merge('sub_association' => sub_association_attributes), association_attributes_2.merge('sub_association' => nil)])
   end
   
-  it "should be able to restore the original model" do
+  it "should be able to restore the original model using Ruby serialization" do
     attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
-    revision = RevisionRecord.new(TestRevisionableRecord.new(attributes))
+    revision = RevisionRecord.new(TestRevisionableRecord.new(attributes), :ruby)
     revision.data = Zlib::Deflate.deflate(Marshal.dump(attributes))
     restored = revision.restore
     restored.class.should == TestRevisionableRecord
@@ -204,6 +204,26 @@ describe "RevisionRecord" do
     restored.attributes.should == attributes
   end
   
+  it "should be able to restore the original model using YAML serialization" do
+    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
+    revision = RevisionRecord.new(TestRevisionableRecord.new(attributes), :yaml)
+    revision.data = Zlib::Deflate.deflate(YAML.dump(attributes))
+    restored = revision.restore
+    restored.class.should == TestRevisionableRecord
+    restored.id.should == 1
+    restored.attributes.should == attributes
+  end
+    
+  it "should be able to restore the original model using XML serialization" do
+    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
+    revision = RevisionRecord.new(TestRevisionableRecord.new(attributes), :xml)
+    revision.data = Zlib::Deflate.deflate(YAML.dump(attributes))
+    restored = revision.restore
+    restored.class.should == TestRevisionableRecord
+    restored.id.should == 1
+    restored.attributes.should == attributes
+  end
+    
   it "should be able to restore associations" do
     restored = TestRevisionableRecord.new
     attributes = {'id' => 1, 'name' => 'revision', 'value' => Time.now, :associations => {'id' => 2, 'value' => 'val'}}

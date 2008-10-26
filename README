@@ -39,10 +39,16 @@ You can restore revisions into an object in memory by calling restore_revision w
 
 If you are revisioning associations, you should always call restore_revision! instead of simply restoring the revision and calling save. Otherwise associations added since the revision will not be removed. This is a limitation on how active record handles removing revisions.
 
+== Serialization
+
+By default revisions are serialized using Ruby's Marshal class. This is the most reliable mechanism, but the least portable. As an alternative, you can specify :encoding => :yaml in the acts_as_revisionalbe options. This will store the data as YAML. There are some issues with the Ruby 1.8 YAML parser where some values are not deserialized properly, so only use this option if you really need the portability. You can specify :encoding => :xml to store the revisions as XML. This should work fine unless the record contains binary data.
+
 == Migration
 
-A migration is included in the migrations directory which must be run before using this plugin.
+Migrations are included in the migrations directory which must be run before using this plugin.
 
 == Destroying
 
-Since the revision history of a record is destroyed along with the record, you could be at risk of losing your revision history. However, this plugin was developed as a companion to the ActsAsTrashable[http://actsastrashable.rubyforge.org/] plugin. With this plugin, you can store destroyed records for a set period along with all dependent associations. Both plugins use similar code and interfaces. It is recommended that you always use ActsAsTrashable along side of ActsAsRevisioned.
+By default, the revision history of a record is destroyed along with the record, you could be at risk of losing your revision history. However, this plugin was developed as a companion to the ActsAsTrashable[http://actsastrashable.rubyforge.org/] plugin. With this plugin, you can store destroyed records for a set period along with all dependent associations. Both plugins use similar code and interfaces. It is recommended that you always use ActsAsTrashable along side of ActsAsRevisioned.
+
+Alternatively, you can specify the :dependent => :keep in options of the acts_as_revisionable call to keep all the revisions after a record is destroyed.

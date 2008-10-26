@@ -1,24 +1,27 @@
 require 'zlib'
+require 'yaml'
 
 class RevisionRecord < ActiveRecord::Base
   
   before_create :set_revision_number
+  attr_reader :data_encoding
   
   # Create a revision record based on a record passed in. The attributes of the original record will
   # be serialized. If it uses the acts_as_revisionable behavior, associations will be revisioned as well.
-  def initialize (record)
+  def initialize (record, encoding = :ruby)
     super({})
+    @data_encoding = encoding
     self.revisionable_type = record.class.base_class.name
     self.revisionable_id = record.id
     associations = record.class.revisionable_associations if record.class.respond_to?(:revisionable_associations)
-    self.data = Zlib::Deflate.deflate(Marshal.dump(serialize_attributes(record, associations)))
+    self.data = Zlib::Deflate.deflate(serialize_hash(serialize_attributes(record, associations)))
   end
   
   # Returns the attributes that are saved in the revision.
   def revision_attributes
     return nil unless self.data
     uncompressed = Zlib::Inflate.inflate(self.data)
-    Marshal.load(uncompressed)
+    deserialize_hash(uncompressed)
   end
   
   # Restore the revision to the original record. If any errors are encountered restoring attributes, they
@@ -80,6 +83,28 @@ class RevisionRecord < ActiveRecord::Base
   
   private
   
+  def serialize_hash (hash)
+    encoding = data_encoding.blank? ? :ruby : data_encoding
+    case encoding.to_sym
+    when :yaml
+      return YAML.dump(hash)
+    when :xml
+      return hash.to_xml(:root => 'revision')
+    else
+      return Marshal.dump(hash)
+    end
+  end
+  
+  def deserialize_hash (data)
+    if data.starts_with?('---')
+      return YAML.load(data)
+    elsif data.starts_with?('<?xml')
+      return Hash.from_xml(data)['revision']
+    else
+      return Marshal.load(data)
+    end
+  end
+  
   def set_revision_number
     last_revision = self.class.maximum(:revision, :conditions => {:revisionable_type => self.revisionable_type, :revisionable_id => self.revisionable_id}) || 0
     self.revision = last_revision + 1
@@ -93,17 +118,18 @@ class RevisionRecord < ActiveRecord::Base
     if revisionable_associations.kind_of?(Hash)
       record.class.reflections.values.each do |association|
         if revisionable_associations[association.name]
+          assoc_name = association.name.to_s
           if association.macro == :has_many
-            attrs[association.name] = record.send(association.name).collect{|r| serialize_attributes(r, revisionable_associations[association.name], already_serialized)}
+            attrs[assoc_name] = record.send(association.name).collect{|r| serialize_attributes(r, revisionable_associations[association.name], already_serialized)}
           elsif association.macro == :has_one
             associated = record.send(association.name)
             unless associated.nil?
-              attrs[association.name] = serialize_attributes(associated, revisionable_associations[association.name], already_serialized)
+              attrs[assoc_name] = serialize_attributes(associated, revisionable_associations[association.name], already_serialized)
             else
-              attrs[association.name.to_s] = nil
+              attrs[assoc_name] = nil
             end
           elsif association.macro == :has_and_belongs_to_many
-            attrs[association.name] = record.send("#{association.name.to_s.singularize}_ids".to_sym)
+            attrs[assoc_name] = record.send("#{association.name.to_s.singularize}_ids".to_sym)
           end
         end
       end
@@ -116,11 +142,13 @@ class RevisionRecord < ActiveRecord::Base
     attrs = {}
     association_attrs = {}
     
-    hash.each_pair do |key, value|
-      if klass.reflections.include?(key)
-        association_attrs[key] = value
-      else
-        attrs[key] = value
+    if hash
+      hash.each_pair do |key, value|
+        if klass.reflections.include?(key.to_sym)
+          association_attrs[key] = value
+        else
+          attrs[key] = value
+        end
       end
     end
     
@@ -128,6 +156,7 @@ class RevisionRecord < ActiveRecord::Base
   end
   
   def restore_association (record, association, association_attributes)
+    association = association.to_sym
     reflection = record.class.reflections[association]
     associated_record = nil
     exists = false
