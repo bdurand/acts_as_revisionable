@@ -1,6 +1,6 @@
 = Acts As Revisionable
 
-This plugin can handle automatically keeping revisions of a model each time it is updated. It is intended to allow you to keep a history of changes that can be reviewed or restored. The functionality is very similar to that offered by the ActsAsVersioned[http://wiki.rubyonrails.org/rails/pages/ActsAsVersioned] plugin. However the implementation is quite different with several advantages for some applications. Associations revisions can be tracked from the main record and the storage implementation is simpler and requires less space from your database.
+This gem can handle automatically keeping revisions of a model each time it is updated. It is intended to allow you to keep a history of changes that can be reviewed or restored. This implementation has the advantages that it can track associations with a parent record and that it takes less space in the database to store the revisions.
 
 To make any ActiveRecord model revisionable, simply declare acts_as_revisionable in the class definition. Revisions are only added when a record is updated, so newly created records don't have revisions. This is intentional to reduce the number of revisions that need to be kept. In many applications, the majority of records are created once and never edited and adding the revision on create ends up at least doubling your storage needs. The attributes of the original record are serialized and compressed for in the revision record to minimize the amount of disk space used. Finally, you can limit the number of associations that are kept at any one time by supplying a :limit option to the acts_as_revisionable statement:
 
@@ -41,14 +41,16 @@ If you are revisioning associations, you should always call restore_revision! in
 
 == Serialization
 
-By default revisions are serialized using Ruby's Marshal class. This is the most reliable mechanism, but the least portable. As an alternative, you can specify :encoding => :yaml in the acts_as_revisionalbe options. This will store the data as YAML. There are some issues with the Ruby 1.8 YAML parser where some values are not deserialized properly, so only use this option if you really need the portability. You can specify :encoding => :xml to store the revisions as XML. This should work fine unless the record contains binary data.
+By default revisions are serialized using Ruby's Marshal class. This is the most reliable mechanism, but the least portable. As an alternative, you can specify <tt>:encoding => :yaml</tt> in the acts_as_revisionable options. This will store the data as YAML. There are some issues with the Ruby 1.8 YAML parser where some values are not deserialized properly, so only use this option if you really need the portability. You can also specify <tt>:encoding => :xml</tt> to store the revisions as XML. This should work fine unless the record contains binary data.
 
-== Migration
+== Setup
 
-Migrations are included in the migrations directory which must be run before using this plugin.
+To create the table structure for ActsAsRevisionable::RevisionRecord, simply add a migration to your project that calls
+
+  ActsAsRevisionable::RevisionRecord.create_table
 
 == Destroying
 
-By default, the revision history of a record is destroyed along with the record, you could be at risk of losing your revision history. However, this plugin was developed as a companion to the ActsAsTrashable[http://actsastrashable.rubyforge.org/] plugin. With this plugin, you can store destroyed records for a set period along with all dependent associations. Both plugins use similar code and interfaces. It is recommended that you always use ActsAsTrashable along side of ActsAsRevisioned.
+By default, the revision history of a record is destroyed along with the record, you could be at risk of losing your revision history. However, this gem was developed as a companion to the acts_as_trashable[http://github.com/bdurand/acts_as_trashable] gem. With this gem, you can store destroyed records for a set period along with all dependent associations. Both gems use similar code and interfaces. It is recommended that you always use acts_as_trashable along side of acts_as_revisionable.
 
 Alternatively, you can specify the :dependent => :keep in options of the acts_as_revisionable call to keep all the revisions after a record is destroyed.

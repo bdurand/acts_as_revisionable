@@ -1,8 +1,16 @@
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
 require 'zlib'
 
-describe "RevisionRecord" do
+describe ActsAsRevisionable::RevisionRecord do
   
+  before :all do
+    ActsAsRevisionable::Test.create_database
+  end
+  
+  after :all do
+    ActsAsRevisionable::Test.delete_database
+  end
+
   class TestRevisionableRecord
     attr_accessor :attributes
     
@@ -12,6 +20,10 @@ describe "RevisionRecord" do
     
     def self.inheritance_column
       'type'
+    end
+    
+    def self.store_full_sti_class
+      true
     end
     
     def initialize (attributes = {})
@@ -97,25 +109,25 @@ describe "RevisionRecord" do
   end
   
   it "should set the revision number before it creates the record" do
-    RevisionRecord.delete_all
-    revision1 = RevisionRecord.new(TestRevisionableRecord.new)
+    ActsAsRevisionable::RevisionRecord.delete_all
+    revision1 = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new('id' => 1))
     revision1.save!
-    revision2 = RevisionRecord.new(TestRevisionableRecord.new)
+    revision2 = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new('id' => 1))
     revision2.save!
     revision1.revision.should == 1
     revision2.revision.should == 2
     revision2.revision = 20
     revision2.save!
-    revision3 = RevisionRecord.new(TestRevisionableRecord.new)
+    revision3 = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new('id' => 1))
     revision3.save!
     revision3.revision.should == 21
-    RevisionRecord.delete_all
+    ActsAsRevisionable::RevisionRecord.delete_all
   end
   
   it "should serialize all the attributes of the original model" do
     attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
     original = TestRevisionableRecord.new(attributes)
-    revision = RevisionRecord.new(original)
+    revision = ActsAsRevisionable::RevisionRecord.new(original)
     revision.revisionable_id.should == 1
     revision.revisionable_type.should == "TestRevisionableRecord"
     revision.revision_attributes.should == attributes
@@ -135,7 +147,7 @@ describe "RevisionRecord" do
     original.should_not_receive(:non_revisionable_associations)
     original.should_receive(:revisionable_associations).and_return(revisionable_associations)
     
-    revision = RevisionRecord.new(original)
+    revision = ActsAsRevisionable::RevisionRecord.new(original)
     revision.revision_attributes.should == attributes.merge('revisionable_associations' => [association_attributes_1, association_attributes_2])
   end
   
@@ -152,7 +164,7 @@ describe "RevisionRecord" do
     original.should_not_receive(:non_revisionable_association)
     original.should_receive(:revisionable_association).and_return(revisionable_association)
     
-    revision = RevisionRecord.new(original)
+    revision = ActsAsRevisionable::RevisionRecord.new(original)
     revision.revision_attributes.should == attributes.merge('revisionable_association' => association_attributes)
   end
   
@@ -166,7 +178,7 @@ describe "RevisionRecord" do
     TestRevisionableRecord.reflections = {:revisionable_associations => revisionable_associations_reflection, :non_revisionable_associations => non_revisionable_associations_reflection}
     original.should_receive(:revisionable_association_ids).and_return([2, 3, 4])
     
-    revision = RevisionRecord.new(original)
+    revision = ActsAsRevisionable::RevisionRecord.new(original)
     revision.revision_attributes.should == attributes.merge('revisionable_associations' => [2, 3, 4])
   end
   
@@ -190,13 +202,13 @@ describe "RevisionRecord" do
     association_1.should_receive(:sub_association).and_return(sub_association)
     association_2.should_receive(:sub_association).and_return(nil)
     
-    revision = RevisionRecord.new(original)
+    revision = ActsAsRevisionable::RevisionRecord.new(original)
     revision.revision_attributes.should == attributes.merge('revisionable_associations' => [association_attributes_1.merge('sub_association' => sub_association_attributes), association_attributes_2.merge('sub_association' => nil)])
   end
   
   it "should be able to restore the original model using Ruby serialization" do
     attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
-    revision = RevisionRecord.new(TestRevisionableRecord.new(attributes), :ruby)
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new(attributes), :ruby)
     revision.data = Zlib::Deflate.deflate(Marshal.dump(attributes))
     restored = revision.restore
     restored.class.should == TestRevisionableRecord
@@ -206,7 +218,7 @@ describe "RevisionRecord" do
   
   it "should be able to restore the original model using YAML serialization" do
     attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
-    revision = RevisionRecord.new(TestRevisionableRecord.new(attributes), :yaml)
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new(attributes), :yaml)
     revision.data = Zlib::Deflate.deflate(YAML.dump(attributes))
     restored = revision.restore
     restored.class.should == TestRevisionableRecord
@@ -216,7 +228,7 @@ describe "RevisionRecord" do
     
   it "should be able to restore the original model using XML serialization" do
     attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
-    revision = RevisionRecord.new(TestRevisionableRecord.new(attributes), :xml)
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new(attributes), :xml)
     revision.data = Zlib::Deflate.deflate(YAML.dump(attributes))
     restored = revision.restore
     restored.class.should == TestRevisionableRecord
@@ -227,7 +239,7 @@ describe "RevisionRecord" do
   it "should be able to restore associations" do
     restored = TestRevisionableRecord.new
     attributes = {'id' => 1, 'name' => 'revision', 'value' => Time.now, :associations => {'id' => 2, 'value' => 'val'}}
-    revision = RevisionRecord.new(TestRevisionableRecord.new)
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     revision.data = Zlib::Deflate.deflate(Marshal.dump(attributes))
     associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
     TestRevisionableRecord.reflections = {:associations => associations_reflection}
@@ -237,7 +249,7 @@ describe "RevisionRecord" do
   end
   
   it "should be able to restore the has_many associations" do
-    revision = RevisionRecord.new(TestRevisionableRecord.new)
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     record = TestRevisionableRecord.new
     
     associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
@@ -253,7 +265,7 @@ describe "RevisionRecord" do
   end
   
   it "should be able to restore the has_one associations" do
-    revision = RevisionRecord.new(TestRevisionableRecord.new)
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     record = TestRevisionableRecord.new
     
     association_reflection = stub(:associations, :name => :association, :macro => :has_one, :klass => TestRevisionableAssociationRecord, :options => {:dependent => :destroy})
@@ -268,7 +280,7 @@ describe "RevisionRecord" do
   end
   
   it "should be able to restore the has_and_belongs_to_many associations" do
-    revision = RevisionRecord.new(TestRevisionableRecord.new)
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     record = TestRevisionableRecord.new
     
     associations_reflection = stub(:associations, :name => :associations, :macro => :has_and_belongs_to_many, :options => {})
@@ -279,7 +291,7 @@ describe "RevisionRecord" do
   end
   
   it "should be able to restore associations of associations" do
-    revision = RevisionRecord.new(TestRevisionableRecord.new)
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     record = TestRevisionableRecord.new
     
     associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
@@ -305,7 +317,7 @@ describe "RevisionRecord" do
   it "should be able to restore a record for a model that has changed and add errors to the restored record" do
     restored = TestRevisionableRecord.new
     attributes = {'id' => 1, 'name' => 'revision', 'value' => Time.now, 'deleted_attribute' => 'abc', :bad_association => {'id' => 3, 'value' => :val}, :associations => {'id' => 2, 'value' => 'val', 'other' => 'val2'}}
-    revision = RevisionRecord.new(TestRevisionableRecord.new)
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     revision.data = Zlib::Deflate.deflate(Marshal.dump(attributes))
     TestRevisionableRecord.should_receive(:new).and_return(restored)
  
@@ -331,45 +343,45 @@ describe "RevisionRecord" do
   end
   
   it "should be able to truncate the revisions for a record" do
-    revision = RevisionRecord.new(TestRevisionableRecord.new(:name => 'name'))
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new(:name => 'name'))
     revision.revision = 20
-    RevisionRecord.should_receive(:find).with(:first, :conditions => ['revisionable_type = ? AND revisionable_id = ?', 'TestRevisionableRecord', 1], :offset => 15, :order => 'revision DESC').and_return(revision)
-    RevisionRecord.should_receive(:delete_all).with(['revisionable_type = ? AND revisionable_id = ? AND revision <= ?', 'TestRevisionableRecord', 1, 20])
-    RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => 15)
+    ActsAsRevisionable::RevisionRecord.should_receive(:find).with(:first, :conditions => ['revisionable_type = ? AND revisionable_id = ?', 'TestRevisionableRecord', 1], :offset => 15, :order => 'revision DESC').and_return(revision)
+    ActsAsRevisionable::RevisionRecord.should_receive(:delete_all).with(['revisionable_type = ? AND revisionable_id = ? AND revision <= ?', 'TestRevisionableRecord', 1, 20])
+    ActsAsRevisionable::RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => 15)
   end
   
   it "should be able to truncate the revisions for a record by age" do
-    revision = RevisionRecord.new(TestRevisionableRecord.new(:name => 'name'))
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new(:name => 'name'))
     revision.revision = 20
     time = 2.weeks.ago
     minimum_age = stub(:integer, :ago => time, :to_i => 1)
     Time.stub!(:now).and_return(minimum_age)
-    RevisionRecord.should_receive(:find).with(:first, :conditions => ['revisionable_type = ? AND revisionable_id = ? AND created_at <= ?', 'TestRevisionableRecord', 1, time], :offset => nil, :order => 'revision DESC').and_return(revision)
-    RevisionRecord.should_receive(:delete_all).with(['revisionable_type = ? AND revisionable_id = ? AND revision <= ?', 'TestRevisionableRecord', 1, 20])
-    RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :minimum_age => minimum_age)
+    ActsAsRevisionable::RevisionRecord.should_receive(:find).with(:first, :conditions => ['revisionable_type = ? AND revisionable_id = ? AND created_at <= ?', 'TestRevisionableRecord', 1, time], :offset => nil, :order => 'revision DESC').and_return(revision)
+    ActsAsRevisionable::RevisionRecord.should_receive(:delete_all).with(['revisionable_type = ? AND revisionable_id = ? AND revision <= ?', 'TestRevisionableRecord', 1, 20])
+    ActsAsRevisionable::RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :minimum_age => minimum_age)
   end
   
   it "should not truncate the revisions for a record if it doesn't have enough" do
-    RevisionRecord.should_receive(:find).with(:first, :conditions => ['revisionable_type = ? AND revisionable_id = ?', 'TestRevisionableRecord', 1], :offset => 15, :order => 'revision DESC').and_return(nil)
-    RevisionRecord.should_not_receive(:delete_all)
-    RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => 15)
+    ActsAsRevisionable::RevisionRecord.should_receive(:find).with(:first, :conditions => ['revisionable_type = ? AND revisionable_id = ?', 'TestRevisionableRecord', 1], :offset => 15, :order => 'revision DESC').and_return(nil)
+    ActsAsRevisionable::RevisionRecord.should_not_receive(:delete_all)
+    ActsAsRevisionable::RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => 15)
   end
   
   it "should not truncate the revisions for a record if no limit or minimum_age is set" do
-    RevisionRecord.should_not_receive(:find)
-    RevisionRecord.should_not_receive(:delete_all)
-    RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => nil, :minimum_age => nil)
+    ActsAsRevisionable::RevisionRecord.should_not_receive(:find)
+    ActsAsRevisionable::RevisionRecord.should_not_receive(:delete_all)
+    ActsAsRevisionable::RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => nil, :minimum_age => nil)
   end
   
   it "should be able to find a record by revisioned type and id" do
-    revision = RevisionRecord.new(TestRevisionableRecord.new(:name => 'name'))
-    RevisionRecord.should_receive(:find).with(:first, :conditions => {:revisionable_type => 'TestRevisionableRecord', :revisionable_id => 1, :revision => 2}).and_return(revision)
-    RevisionRecord.find_revision(TestRevisionableRecord, 1, 2).should == revision
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new(:name => 'name'))
+    ActsAsRevisionable::RevisionRecord.should_receive(:find).with(:first, :conditions => {:revisionable_type => 'TestRevisionableRecord', :revisionable_id => 1, :revision => 2}).and_return(revision)
+    ActsAsRevisionable::RevisionRecord.find_revision(TestRevisionableRecord, 1, 2).should == revision
   end
   
   it "should handle module namespaces" do
     attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
-    revision = RevisionRecord.new(ActsAsRevisionable::TestModuleRecord.new(attributes))
+    revision = ActsAsRevisionable::RevisionRecord.new(ActsAsRevisionable::TestModuleRecord.new(attributes))
     revision.data = Zlib::Deflate.deflate(Marshal.dump(attributes))
     restored = revision.restore
     restored.class.should == ActsAsRevisionable::TestModuleRecord
@@ -378,39 +390,39 @@ describe "RevisionRecord" do
   it "should handle single table inheritance" do
     attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
     record = TestInheritanceRecord.new(attributes)
-    revision = RevisionRecord.new(record)
+    revision = ActsAsRevisionable::RevisionRecord.new(record)
     revision.data = Zlib::Deflate.deflate(Marshal.dump(record.attributes))
     restored = revision.restore
     restored.class.should == TestInheritanceRecord
   end
   
   it "should really save the revision records to the database and restore without any mocking" do
-    RevisionRecord.delete_all
-    RevisionRecord.count.should == 0
+    ActsAsRevisionable::RevisionRecord.delete_all
+    ActsAsRevisionable::RevisionRecord.count.should == 0
     
     attributes = {'id' => 1, 'value' => rand(1000000)}
     original = TestRevisionableRecord.new(attributes)
     original.attributes['name'] = 'revision 1'
-    RevisionRecord.new(original).save!
-    first_revision = RevisionRecord.find(:first)
+    ActsAsRevisionable::RevisionRecord.new(original).save!
+    first_revision = ActsAsRevisionable::RevisionRecord.find(:first)
     original.attributes['name'] = 'revision 2'
-    RevisionRecord.new(original).save!
+    ActsAsRevisionable::RevisionRecord.new(original).save!
     original.attributes['name'] = 'revision 3'
-    RevisionRecord.new(original).save!
-    RevisionRecord.count.should == 3
+    ActsAsRevisionable::RevisionRecord.new(original).save!
+    ActsAsRevisionable::RevisionRecord.count.should == 3
     
-    record = RevisionRecord.find_revision(TestRevisionableRecord, 1, 1).restore
+    record = ActsAsRevisionable::RevisionRecord.find_revision(TestRevisionableRecord, 1, 1).restore
     record.class.should == TestRevisionableRecord
     record.id.should == 1
     record.attributes.should == attributes.merge('name' => 'revision 1')
     
-    RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => 2)
-    RevisionRecord.count.should == 2
-    RevisionRecord.find_by_id(first_revision.id).should == nil
-    RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => 0, :minimum_age => 1.week)
-    RevisionRecord.count.should == 2
-    RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => 0)
-    RevisionRecord.count.should == 0
+    ActsAsRevisionable::RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => 2)
+    ActsAsRevisionable::RevisionRecord.count.should == 2
+    ActsAsRevisionable::RevisionRecord.find_by_id(first_revision.id).should == nil
+    ActsAsRevisionable::RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => 0, :minimum_age => 1.week)
+    ActsAsRevisionable::RevisionRecord.count.should == 2
+    ActsAsRevisionable::RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => 0)
+    ActsAsRevisionable::RevisionRecord.count.should == 0
   end
   
 end

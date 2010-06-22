@@ -1,7 +1,14 @@
 require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
-require File.expand_path(File.dirname(__FILE__) + '/../init.rb')
 
-describe "ActsAsRevisionable" do
+describe ActsAsRevisionable do
+  
+  before :all do
+    ActsAsRevisionable::Test.create_database
+  end
+  
+  after :all do
+    ActsAsRevisionable::Test.delete_database
+  end
   
   class TestRevisionableModel
     include ActsAsRevisionable
@@ -34,7 +41,7 @@ describe "ActsAsRevisionable" do
   end
   
   it "should add as has_many :record_revisions association" do
-    TestRevisionableModel.associations[:revision_records].should == {:as => :revisionable, :dependent => :destroy, :order=>"revision DESC"}
+    TestRevisionableModel.associations[:revision_records].should == {:as => :revisionable, :dependent => :destroy, :order=>"revision DESC", :class_name => "ActsAsRevisionable::RevisionRecord"}
   end
   
   it "should parse the revisionable associations" do
@@ -60,7 +67,7 @@ describe "ActsAsRevisionable" do
     read_only_record = TestRevisionableModel.new
     TestRevisionableModel.should_receive(:find).with(1, :readonly => true).and_return(read_only_record)
     revision = mock(:revision)
-    RevisionRecord.should_receive(:transaction).and_yield
+    ActsAsRevisionable::RevisionRecord.should_receive(:transaction).and_yield
     read_only_record.should_receive(:create_revision!).and_return(revision)
     record.should_receive(:truncate_revisions!).with()
     record.should_receive(:really_update)
@@ -78,7 +85,7 @@ describe "ActsAsRevisionable" do
     read_only_record = TestRevisionableModel.new
     TestRevisionableModel.should_receive(:find).with(1, :readonly => true).and_return(read_only_record)
     revision = mock(:revision)
-    RevisionRecord.should_receive(:transaction).and_yield
+    ActsAsRevisionable::RevisionRecord.should_receive(:transaction).and_yield
     read_only_record.should_receive(:create_revision!).and_return(revision)
     record.should_receive(:truncate_revisions!).with()
     record.should_receive(:really_update).and_raise("update failed")
@@ -100,7 +107,7 @@ describe "ActsAsRevisionable" do
     read_only_record = TestRevisionableModel.new
     TestRevisionableModel.should_receive(:find).with(1, :readonly => true).and_return(read_only_record)
     revision = mock(:revision)
-    RevisionRecord.should_receive(:transaction).and_yield
+    ActsAsRevisionable::RevisionRecord.should_receive(:transaction).and_yield
     read_only_record.should_receive(:create_revision!).and_return(revision)
     record.should_receive(:truncate_revisions!).with()
     record.should_receive(:update).and_raise("update failed")
@@ -114,7 +121,7 @@ describe "ActsAsRevisionable" do
   it "should be able to create a revision record" do
     record = TestRevisionableModel.new
     revision = mock(:revision)
-    RevisionRecord.should_receive(:new).with(record, :encoding).and_return(revision)
+    ActsAsRevisionable::RevisionRecord.should_receive(:new).with(record, :encoding).and_return(revision)
     revision.should_receive(:save!)
     record.create_revision!.should == revision
   end
@@ -131,7 +138,7 @@ describe "ActsAsRevisionable" do
     record = TestRevisionableModel.new
     record.stub!(:new_record?).and_return(nil)
     TestRevisionableModel.should_not_receive(:find)
-    RevisionRecord.should_not_receive(:transaction)
+    ActsAsRevisionable::RevisionRecord.should_not_receive(:transaction)
     record.should_not_receive(:create_revision!)
     record.should_not_receive(:truncate_revisions!)
     record.should_receive(:update)
@@ -146,14 +153,14 @@ describe "ActsAsRevisionable" do
   it "should truncate the revisions" do
     record = TestRevisionableModel.new
     record.stub!(:id).and_return(1)
-    RevisionRecord.should_receive(:truncate_revisions).with(TestRevisionableModel, 1, {:limit => 20, :minimum_age => 2.weeks})
+    ActsAsRevisionable::RevisionRecord.should_receive(:truncate_revisions).with(TestRevisionableModel, 1, {:limit => 20, :minimum_age => 2.weeks})
     record.truncate_revisions!(:limit => 20, :minimum_age => 2.weeks)
   end
   
   it "should be able to restore a revision by id and revision" do
     revision = mock(:revision)
     record = mock(:record)
-    RevisionRecord.should_receive(:find_revision).with(TestRevisionableModel, 1, 5).and_return(revision)
+    ActsAsRevisionable::RevisionRecord.should_receive(:find_revision).with(TestRevisionableModel, 1, 5).and_return(revision)
     revision.should_receive(:restore).and_return(record)
     TestRevisionableModel.restore_revision(1, 5).should == record
   end
