@@ -16,9 +16,14 @@ Gem::Specification.new do |s|
     "README.rdoc"
   ]
   s.files = [
-    "MIT-LICENSE",
+    ".gitignore",
+     "MIT-LICENSE",
+     "README.rdoc",
      "Rakefile",
+     "VERSION",
+     "acts_as_revisionable.gemspec",
      "lib/acts_as_revisionable.rb",
+     "lib/acts_as_revisionable/revision_record.rb",
      "spec/acts_as_revisionable_spec.rb",
      "spec/full_spec.rb",
      "spec/revision_record_spec.rb",
