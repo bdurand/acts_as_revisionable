@@ -36,7 +36,7 @@ module ActsAsRevisionable
           t.string :revisionable_type, :null => false, :limit => 100
           t.integer :revisionable_id, :null => false
           t.integer :revision, :null => false
-          t.binary :data, :limit => 5.megabytes
+          t.binary :data, :limit => (connection.adapter_name == "MySQL" ? 5.megabytes : nil)
           t.timestamp :created_at, :null => false
         end
 
