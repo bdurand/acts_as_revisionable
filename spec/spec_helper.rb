@@ -1,4 +1,11 @@
 require 'rubygems'
+
+if ENV["ACTIVE_RECORD_VERSION"]
+  gem 'activerecord', ENV["ACTIVE_RECORD_VERSION"]
+else
+  gem 'activerecord'
+end
+
 require File.expand_path('../../lib/acts_as_revisionable', __FILE__)
 require 'sqlite3'
 

@@ -75,8 +75,8 @@ module ActsAsRevisionable
             sti_type = (/^::/ =~ type_name) ? type_name : "#{restore_class.parent.name}::#{type_name}"
           end
           restore_class = sti_type.constantize
-        rescue NameError
-          raise
+        rescue NameError => e
+          raise e
           # Seems our assumption was wrong and we have no STI
         end
       end
@@ -95,8 +95,10 @@ module ActsAsRevisionable
       association_attrs.each_pair do |association, attribute_values|
         restore_association(record, association, attribute_values)
       end
-    
-      record.instance_variable_set(:@new_record, nil)
+      
+      record.instance_variable_set(:@new_record, nil) if record.instance_variable_defined?(:@new_record)
+      # ActiveRecord 3.0.2 and 3.0.3 used @persisted instead of @new_record
+      record.instance_variable_set(:@persisted, true) if record.instance_variable_defined?(:@persisted)
     
       return record
     end
@@ -220,8 +222,12 @@ module ActsAsRevisionable
       association_attrs.each_pair do |key, values|
         restore_association(associated_record, key, values)
       end
-    
-      associated_record.instance_variable_set(:@new_record, nil) if exists
+      
+      if exists
+        associated_record.instance_variable_set(:@new_record, nil) if associated_record.instance_variable_defined?(:@new_record)
+        # ActiveRecord 3.0.2 and 3.0.3 used @persisted instead of @new_record
+        associated_record.instance_variable_set(:@persisted, true) if associated_record.instance_variable_defined?(:@persisted)
+      end
     end
   end
 end
