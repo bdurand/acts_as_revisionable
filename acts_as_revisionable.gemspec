@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{acts_as_revisionable}
-  s.version = "1.0.5"
+  s.version = "1.0.6"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Brian Durand"]
-  s.date = %q{2011-01-28}
+  s.date = %q{2011-02-08}
   s.description = %q{ActiveRecord extension that provides revision support so that history can be tracked and changes can be reverted. Emphasis for this plugin versus similar ones is including associations, saving on storage, and extensibility of the model.}
   s.email = %q{brian@embellishedvisions.com}
   s.extra_rdoc_files = [
