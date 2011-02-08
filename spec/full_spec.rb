@@ -85,6 +85,7 @@ describe "ActsAsRevisionable Full Test" do
         
         set_inheritance_column :type_name
         acts_as_revisionable :dependent => :keep, :encoding => :xml
+        self.store_full_sti_class = false
       end
       
       class RevisionableSubclassModel < RevisionableNamespaceModel
@@ -402,7 +403,7 @@ describe "ActsAsRevisionable Full Test" do
     restored.class.should == ActsAsRevisionable::RevisionableSubclassModel
     restored.name.should == 'test'
     restored.id.should == model.id
-    restored.type_name.should == 'ActsAsRevisionable::RevisionableSubclassModel'
+    restored.type_name.should == 'RevisionableSubclassModel'
   end
   
   it "should destroy revisions if :dependent => :keep was not specified" do

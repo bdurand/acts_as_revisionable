@@ -71,8 +71,8 @@ module ActsAsRevisionable
       sti_type = self.revision_attributes[restore_class.inheritance_column]
       if sti_type
         begin
-          unless restore_class.store_full_sti_class
-            sti_type = (/^::/ =~ type_name) ? type_name : "#{restore_class.parent.name}::#{type_name}"
+          if !restore_class.store_full_sti_class && !sti_type.start_with?("::")
+            sti_type = "#{restore_class.parent.name}::#{sti_type}"
           end
           restore_class = sti_type.constantize
         rescue NameError => e
