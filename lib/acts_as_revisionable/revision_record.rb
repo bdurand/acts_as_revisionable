@@ -195,7 +195,7 @@ module ActsAsRevisionable
             associated_record.class.primary_key.each do |key|
               associated_record.send("#{key.to_s}=", association_attributes[key.to_s])
             end
-            exists = associated_record.class.find(associated_record.send(c.class.primary_key)) rescue nil
+            exists = associated_record.class.find(associated_record.send(associated_record.class.primary_key)) rescue nil
           end
         elsif reflection.macro == :has_one
           associated_record = reflection.klass.new
