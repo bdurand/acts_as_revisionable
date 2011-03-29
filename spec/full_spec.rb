@@ -446,8 +446,6 @@ describe "ActsAsRevisionable Full Test" do
     ActsAsRevisionable::RevisionRecord.count.should == 1
   end
 
-  it "should handle composite primary keys" do
-
-  end
+  it "should handle composite primary keys"
 
 end
