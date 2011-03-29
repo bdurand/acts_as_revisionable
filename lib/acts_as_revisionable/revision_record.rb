@@ -199,8 +199,10 @@ module ActsAsRevisionable
           end
         elsif reflection.macro == :has_one
           associated_record = reflection.klass.new
-          associated_record.id = association_attributes['id']
-          exists = associated_record.class.find(associated_record.id) rescue nil
+          associated_record.class.primary_key.each do |key|
+            associated_record.send("#{key.to_s}=", association_attributes[key.to_s])
+          end
+          exists = associated_record.class.find(associated_record.send(associated_record.class.primary_key)) rescue nil
           record.send("#{association}=", associated_record)
         elsif reflection.macro == :has_and_belongs_to_many
           record.send("#{association.to_s.singularize}_ids=", association_attributes)
