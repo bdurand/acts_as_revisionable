@@ -72,6 +72,44 @@ describe ActsAsRevisionable::RevisionRecord do
       "legacy_id"
     end
 
+    def legacy_id
+      attributes['legacy_id']
+    end
+
+    def legacy_id= (val)
+      attributes['legacy_id'] = val
+    end
+
+    def self.reflections
+      @reflections || {}
+    end
+
+    def self.reflections= (vals)
+      @reflections = vals
+    end
+  end
+
+  class TestRevisionableAssociationComposite < TestRevisionableRecord
+    def self.primary_key
+      [:first_id, :second_id]
+    end
+
+    def first_id
+      attributes['first_id']
+    end
+
+    def first_id= (val)
+      attributes['first_id'] = val
+    end
+
+    def second_id
+      attributes['second_id']
+    end
+
+    def second_id= (val)
+      attributes['second_id'] = val
+    end
+
     def self.reflections
       @reflections || {}
     end
@@ -282,21 +320,38 @@ describe ActsAsRevisionable::RevisionRecord do
     associated_record.attributes.should == {'id' => 1, 'value' => 'val'}
   end
 
-  it "should be able to restore the has_many associations with a legacy primary key" # do
-  #     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
-  #     record = TestRevisionableRecord.new
-  #
-  #     associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
-  #     TestRevisionableRecord.reflections = {:associations => associations_reflection}
-  #     associations = mock(:associations)
-  #     record.should_receive(:associations).and_return(associations)
-  #     associated_record = TestRevisionableAssociationLegacyRecord.new
-  #     associations.should_receive(:build).and_return(associated_record)
-  #
-  #     revision.send(:restore_association, record, :associations, {'legacy_id' => 1, 'value' => 'val'})
-  #     associated_record.id.should == 1
-  #     associated_record.attributes.should == {'id' => 1, 'value' => 'val'}
-  #   end
+  it "should be able to restore the has_many associations with a legacy primary key" do
+        revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
+        record = TestRevisionableRecord.new
+
+        associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
+        TestRevisionableRecord.reflections = {:associations => associations_reflection}
+        associations = mock(:associations)
+        record.should_receive(:associations).and_return(associations)
+        associated_record = TestRevisionableAssociationLegacyRecord.new
+        associations.should_receive(:build).and_return(associated_record)
+
+        revision.send(:restore_association, record, :associations, {'legacy_id' => 1, 'value' => 'val'})
+        associated_record.legacy_id.should == 1
+        associated_record.attributes.should == {'legacy_id' => 1, 'value' => 'val'}
+  end
+
+  it "should be able to restore the has_many associations with composite proimary keys" do
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
+    record = TestRevisionableRecord.new
+
+    associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
+    TestRevisionableRecord.reflections = {:associations => associations_reflection}
+    associations = mock(:associations)
+    record.should_receive(:associations).and_return(associations)
+    associated_record = TestRevisionableAssociationComposite.new
+    associations.should_receive(:build).and_return(associated_record)
+
+    revision.send(:restore_association, record, :associations, {'first_id' => 1, 'second_id' => 2, 'value' => 'val'})
+    associated_record.first_id.should == 1
+    associated_record.second_id.should == 2
+    associated_record.attributes.should == {'first_id' => 1, 'second_id' => 2, 'value' => 'val'}
+  end
 
   it "should be able to restore the has_one associations" do
     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
