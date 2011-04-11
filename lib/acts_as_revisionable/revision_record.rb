@@ -11,13 +11,18 @@ module ActsAsRevisionable
 
     class << self
       # Find a specific revision record.
-      def find_revision (klass, id, revision)
+      def find_revision(klass, id, revision)
         find(:first, :conditions => {:revisionable_type => klass.base_class.to_s, :revisionable_id => id, :revision => revision})
+      end
+      
+      # Find the last revision record for a class.
+      def last_revision(klass, id, revision = nil)
+        find(:first, :conditions => {:revisionable_type => klass.base_class.to_s, :revisionable_id => id}, :order => "revision DESC")
       end
 
       # Truncate the revisions for a record. Available options are :limit and :max_age.
-      def truncate_revisions (revisionable_type, revisionable_id, options)
-        return unless options[:limit] or options[:minimum_age]
+      def truncate_revisions(revisionable_type, revisionable_id, options)
+        return unless options[:limit] || options[:minimum_age]
 
         conditions = ['revisionable_type = ? AND revisionable_id = ?', revisionable_type.base_class.to_s, revisionable_id]
         if options[:minimum_age]
@@ -46,7 +51,7 @@ module ActsAsRevisionable
 
     # Create a revision record based on a record passed in. The attributes of the original record will
     # be serialized. If it uses the acts_as_revisionable behavior, associations will be revisioned as well.
-    def initialize (record, encoding = :ruby)
+    def initialize(record, encoding = :ruby)
       super({})
       @data_encoding = encoding
       self.revisionable_type = record.class.base_class.name
@@ -105,7 +110,7 @@ module ActsAsRevisionable
 
     private
 
-    def serialize_hash (hash)
+    def serialize_hash(hash)
       encoding = data_encoding.blank? ? :ruby : data_encoding
       case encoding.to_sym
       when :yaml
@@ -117,7 +122,7 @@ module ActsAsRevisionable
       end
     end
 
-    def deserialize_hash (data)
+    def deserialize_hash(data)
       if data.starts_with?('---')
         return YAML.load(data)
       elsif data.starts_with?('<?xml')
@@ -132,7 +137,7 @@ module ActsAsRevisionable
       self.revision = last_revision + 1
     end
 
-    def serialize_attributes (record, revisionable_associations, already_serialized = {})
+    def serialize_attributes(record, revisionable_associations, already_serialized = {})
       return if already_serialized["#{record.class}.#{record.id}"]
       attrs = record.attributes.dup
       already_serialized["#{record.class}.#{record.id}"] = true
@@ -160,7 +165,7 @@ module ActsAsRevisionable
       return attrs
     end
 
-    def attributes_and_associations (klass, hash)
+    def attributes_and_associations(klass, hash)
       attrs = {}
       association_attrs = {}
 
@@ -177,7 +182,7 @@ module ActsAsRevisionable
       return [attrs, association_attrs]
     end
 
-    def restore_association (record, association, association_attributes)
+    def restore_association(record, association, association_attributes)
       association = association.to_sym
       reflection = record.class.reflections[association]
       associated_record = nil

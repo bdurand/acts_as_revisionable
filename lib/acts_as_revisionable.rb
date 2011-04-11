@@ -1,11 +1,11 @@
 require 'active_record'
-require 'active_support/all'
+require 'active_support'
 
 module ActsAsRevisionable
   
   autoload :RevisionRecord, File.expand_path('../acts_as_revisionable/revision_record', __FILE__)
   
-  def self.included (base)
+  def self.included(base)
     base.extend(ActsMethods)
   end
   
@@ -24,30 +24,31 @@ module ActsAsRevisionable
     # revisions for complex models with associations can be better controlled.
     #
     # A has_many :revision_records will also be added to the model for accessing the revisions.
-    def acts_as_revisionable (options = {})
+    def acts_as_revisionable(options = {})
       write_inheritable_attribute(:acts_as_revisionable_options, options)
       class_inheritable_reader(:acts_as_revisionable_options)
       extend ClassMethods
       include InstanceMethods
       has_many_options = {:as => :revisionable, :order => 'revision DESC', :class_name => "ActsAsRevisionable::RevisionRecord"}
-      has_many_options[:dependent] = :destroy unless options[:dependent] == :keep 
+      has_many_options[:dependent] = :destroy unless options[:dependent] == :keep
       has_many :revision_records, has_many_options
       alias_method_chain :update, :revision if options[:on_update]
+      alias_method_chain :destroy, :revision if options[:on_destroy]
     end
   end
   
   module ClassMethods
-    # Load a revision for a record with a particular id. If this revision has association it
-    # will not delete associated records added since the revision was added if you save it.
+    # Load a revision for a record with a particular id. Associations added since the revision
+    # was created will still be in the restored record.
     # If you want to save a revision with associations properly, use restore_revision!
-    def restore_revision (id, revision)
-      revision = RevisionRecord.find_revision(self, id, revision)
-      return revision.restore if revision
+    def restore_revision(id, revision)
+      revision_record = RevisionRecord.find_revision(self, id, revision)
+      return revision_record.restore if revision_record
     end
 
     # Load a revision for a record with a particular id and save it to the database. You should
     # always use this method to save a revision if it has associations.
-    def restore_revision! (id, revision)
+    def restore_revision!(id, revision)
       record = restore_revision(id, revision)
       if record
         record.store_revision do
@@ -57,8 +58,28 @@ module ActsAsRevisionable
       return record
     end
     
+    # Load the last revision for a record with the specified id. Associations added since the revision
+    # was created will still be in the restored record.
+    # If you want to save a revision with associations properly, use restore_last_revision!
+    def restore_last_revision(id)
+      revision_record = RevisionRecord.last_revision(self, id)
+      return revision_record.restore if revision_record
+    end
+
+    # Load the last revision for a record with the specified id and save it to the database. You should
+    # always use this method to save a revision if it has associations.
+    def restore_last_revision!(id)
+      record = restore_last_revision(id)
+      if record
+        record.store_revision do
+          save_restorable_associations(record, revisionable_associations)
+        end
+      end
+      return record
+    end
+    
     # Returns a hash structure used to identify the revisioned associations.
-    def revisionable_associations (options = acts_as_revisionable_options[:associations])
+    def revisionable_associations(options = acts_as_revisionable_options[:associations])
       return nil unless options
       options = [options] unless options.kind_of?(Array)
       associations = {}
@@ -76,7 +97,7 @@ module ActsAsRevisionable
     
     private
     
-    def save_restorable_associations (record, associations)
+    def save_restorable_associations(record, associations)
       record.class.transaction do
         if associations.kind_of?(Hash)
           associations.each_pair do |association, sub_associations|
@@ -112,18 +133,18 @@ module ActsAsRevisionable
   module InstanceMethods
     # Restore a revision of the record and return it. The record is not saved to the database. If there
     # is a problem restoring values, errors will be added to the record.
-    def restore_revision (revision)
+    def restore_revision(revision)
       self.class.restore_revision(self.id, revision)
     end
     
     # Restore a revision of the record and save it along with restored associations.
-    def restore_revision! (revision)
+    def restore_revision!(revision)
       self.class.restore_revision!(self.id, revision)
     end
     
     # Call this method to implement revisioning. The object changes should happen inside the block.
     def store_revision
-      if new_record? or @revisions_disabled
+      if new_record? || @revisions_disabled
         return yield
       else
         retval = nil
@@ -161,7 +182,7 @@ module ActsAsRevisionable
     end
     
     # Truncate the number of revisions kept for this record. Available options are :limit and :minimum_age.
-    def truncate_revisions! (options = nil)
+    def truncate_revisions!(options = nil)
       options = {:limit => acts_as_revisionable_options[:limit], :minimum_age => acts_as_revisionable_options[:minimum_age]} unless options
       RevisionRecord.truncate_revisions(self.class, self.id, options)
     end
@@ -179,9 +200,16 @@ module ActsAsRevisionable
       return retval
     end
     
+    # Destroy the record while recording the revision.
+    def destroy_with_revision
+      store_revision do
+        destroy_without_revision
+      end
+    end
+    
     private
     
-    # This is the update call that overrides the default update method.
+    # Update the record while recording the revision.
     def update_with_revision
       store_revision do
         update_without_revision

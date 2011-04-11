@@ -30,7 +30,7 @@ describe ActsAsRevisionable::RevisionRecord do
       true
     end
 
-    def initialize (attributes = {})
+    def initialize(attributes = {})
       @attributes = attributes
     end
 
@@ -46,15 +46,15 @@ describe ActsAsRevisionable::RevisionRecord do
       attributes['id']
     end
 
-    def id= (val)
+    def id=(val)
       attributes['id'] = val
     end
 
-    def name= (val)
+    def name=(val)
       attributes['name'] = val
     end
 
-    def value= (val)
+    def value=(val)
       attributes['value'] = val
     end
 
@@ -76,7 +76,7 @@ describe ActsAsRevisionable::RevisionRecord do
       attributes['legacy_id']
     end
 
-    def legacy_id= (val)
+    def legacy_id=(val)
       attributes['legacy_id'] = val
     end
 
@@ -98,7 +98,7 @@ describe ActsAsRevisionable::RevisionRecord do
       attributes['first_id']
     end
 
-    def first_id= (val)
+    def first_id=(val)
       attributes['first_id'] = val
     end
 
@@ -106,7 +106,7 @@ describe ActsAsRevisionable::RevisionRecord do
       attributes['second_id']
     end
 
-    def second_id= (val)
+    def second_id=(val)
       attributes['second_id'] = val
     end
 
@@ -149,11 +149,11 @@ describe ActsAsRevisionable::RevisionRecord do
       TestRevisionableRecord
     end
 
-    def initialize (attributes = {})
+    def initialize(attributes = {})
       super({'type' => 'TestInheritanceRecord'}.merge(attributes))
     end
 
-    def type= (val)
+    def type=(val)
       attributes['type'] = val
     end
   end
@@ -466,6 +466,12 @@ describe ActsAsRevisionable::RevisionRecord do
     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new(:name => 'name'))
     ActsAsRevisionable::RevisionRecord.should_receive(:find).with(:first, :conditions => {:revisionable_type => 'TestRevisionableRecord', :revisionable_id => 1, :revision => 2}).and_return(revision)
     ActsAsRevisionable::RevisionRecord.find_revision(TestRevisionableRecord, 1, 2).should == revision
+  end
+  
+  it "should find the last revision" do
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new(:name => 'name'))
+    ActsAsRevisionable::RevisionRecord.should_receive(:find).with(:first, :conditions => {:revisionable_type => 'TestRevisionableRecord', :revisionable_id => 1}, :order => "revision DESC").and_return(revision)
+    ActsAsRevisionable::RevisionRecord.last_revision(TestRevisionableRecord, 1).should == revision
   end
 
   it "should handle module namespaces" do

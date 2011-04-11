@@ -173,4 +173,20 @@ describe ActsAsRevisionable do
     TestRevisionableModel.restore_revision!(1, 5).should == record
   end
   
+  it "should be able to restore the last revision" do
+    revision = mock(:revision)
+    record = mock(:record)
+    ActsAsRevisionable::RevisionRecord.should_receive(:last_revision).with(TestRevisionableModel, 1).and_return(revision)
+    revision.should_receive(:restore).and_return(record)
+    TestRevisionableModel.restore_last_revision(1).should == record
+  end
+  
+  it "should be able to restore the last revision and save it" do
+    record = mock(:record)
+    TestRevisionableModel.should_receive(:restore_last_revision).with(1).and_return(record)
+    record.should_receive(:store_revision).and_yield
+    TestRevisionableModel.should_receive(:save_restorable_associations).with(record, TestRevisionableModel.revisionable_associations)
+    TestRevisionableModel.restore_last_revision!(1).should == record
+  end
+  
 end

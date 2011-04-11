@@ -2,7 +2,7 @@
 
 This gem can handle automatically keeping revisions of a model each time it is updated. It is intended to allow you to keep a history of changes that can be reviewed or restored. This implementation has the advantages that it can track associations with a parent record and that it takes less space in the database to store the revisions.
 
-To make any ActiveRecord model revisionable, simply declare acts_as_revisionable in the class definition. Revisions are only added when a record is updated, so newly created records don't have revisions. This is intentional to reduce the number of revisions that need to be kept. In many applications, the majority of records are created once and never edited and adding the revision on create ends up at least doubling your storage needs. The attributes of the original record are serialized and compressed for in the revision record to minimize the amount of disk space used. Finally, you can limit the number of associations that are kept at any one time by supplying a :limit option to the acts_as_revisionable statement:
+To make any ActiveRecord model revisionable, simply declare +acts_as_revisionable+ in the class definition. Revisions are only added when a record is updated, so newly created records don't have revisions. This is intentional to reduce the number of revisions that need to be kept. In many applications, the majority of records are created once and never edited and adding the revision on create ends up at least doubling your storage needs. The attributes of the original record are serialized and compressed for in the revision record to minimize the amount of disk space used. Finally, you can limit the number of associations that are kept at any one time by supplying a <tt>:limit</tt> option to the +acts_as_revisionable+ statement:
 
   acts_as_revisionable :limit => 25
 
@@ -14,7 +14,7 @@ Revisions are accessible on a record via a has_many :revision_records associatio
 
 == Associations
 
-You can specify associations that you'd like to include in each revision by providing a list of them with the :associations key to the acts_as_revisionable options hash. You can either provide a symbol with the association name or, if you'd like to include sub-associations, a hash with the association name as the key and the value as a list of sub-associations to include. These are are valid :associations values:
+You can specify associations that you'd like to include in each revision by providing a list of them with the <tt>:associations</tt> key to the acts_as_revisionable options hash. You can either provide a symbol with the association name or, if you'd like to include sub-associations, a hash with the association name as the key and the value as a list of sub-associations to include. These are are valid :associations values:
 
   :associations => :comments  # include has_many :comments in the revision
   :associations => [:comments, :tags]  # include both :comments and :tags
@@ -24,7 +24,7 @@ You can only revision has_many, has_one, and has_and_belongs_to_many association
 
 == Storing Revisions
 
-Normally, revisions are only created when an update is done inside of a store_revision block. You can make this behavior automatic on update by specifying :on_update => true in the acts_as_revisionable call. This can be handy if you have a simple records without associations. If you do have associations in your model, you should not use this feature because you may end up revisioning associations in an indeterminate state. In this case, surround all your update statements with a store_revision block:
+Normally, revisions are only created when an update is done inside of a store_revision block. You can make this behavior automatic on update by specifying <tt>:on_update => true</tt> in the +acts_as_revisionable+ call. This can be handy if you have a simple records without associations. If you do have associations in your model, you should not use this feature because you may end up revisioning associations in an indeterminate state. In this case, surround all your update statements with a store_revision block:
 
   store_revision do
     model.update_has_many_records(params[:has_many])
@@ -51,6 +51,10 @@ To create the table structure for ActsAsRevisionable::RevisionRecord, simply add
 
 == Destroying
 
-By default, the revision history of a record is destroyed along with the record, you could be at risk of losing your revision history. However, this gem was developed as a companion to the acts_as_trashable[http://github.com/bdurand/acts_as_trashable] gem. With this gem, you can store destroyed records for a set period along with all dependent associations. Both gems use similar code and interfaces. It is recommended that you always use acts_as_trashable along side of acts_as_revisionable.
+By default, the revision history of a record is destroyed along with the record. If you'd like to keep the history and be able to restore deleted records, then you can specify <tt>:dependent => :keep, :on_destroy => true</tt> in options of the +acts_as_revisionable_+ call. This will keep the revision records and also automatically wrap all destroy calls in a +store_revision+ block.
 
-Alternatively, you can specify the :dependent => :keep in options of the acts_as_revisionable call to keep all the revisions after a record is destroyed.
+Destroyed records can be restored by restoring the last revision.
+
+  record = Model.find(100)
+  record.destroy
+  restored = Model.restore_last_revision!(100)
