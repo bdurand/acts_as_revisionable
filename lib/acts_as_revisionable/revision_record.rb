@@ -94,25 +94,8 @@ module ActsAsRevisionable
         end
       end
 
-      attrs, association_attrs = attributes_and_associations(restore_class, self.revision_attributes)
-
       record = restore_class.new
-      attrs.each_pair do |key, value|
-        begin
-          record.send("#{key}=", value)
-        rescue
-          record.errors.add(key.to_sym, "could not be restored to #{value.inspect}")
-        end
-      end
-
-      association_attrs.each_pair do |association, attribute_values|
-        restore_association(record, association, attribute_values)
-      end
-
-      record.instance_variable_set(:@new_record, nil) if record.instance_variable_defined?(:@new_record)
-      # ActiveRecord 3.0.2 and 3.0.3 used @persisted instead of @new_record
-      record.instance_variable_set(:@persisted, true) if record.instance_variable_defined?(:@persisted)
-
+      restore_record(record, revision_attributes)
       return record
     end
 
@@ -164,7 +147,7 @@ module ActsAsRevisionable
                 attrs[assoc_name] = nil
               end
             elsif association.macro == :has_and_belongs_to_many
-              attrs[assoc_name] = record.send("#{association.name.to_s.singularize}_ids".to_sym)
+              attrs[assoc_name] = record.send("#{association.name.to_s.singularize}_ids")
             end
           end
         end
@@ -194,28 +177,21 @@ module ActsAsRevisionable
       association = association.to_sym
       reflection = record.class.reflections[association]
       associated_record = nil
-      exists = false
 
       begin
         if reflection.macro == :has_many
           if association_attributes.kind_of?(Array)
-            record.send("#{association}=".to_sym, [])
+            record.send("#{association}=", [])
             association_attributes.each do |attrs|
               restore_association(record, association, attrs)
             end
           else
             associated_record = record.send(association).build
-            associated_record.class.primary_key.each do |key|
-              associated_record.send("#{key.to_s}=", association_attributes[key.to_s])
-            end
-            exists = associated_record.class.find(associated_record.send(associated_record.class.primary_key)) rescue nil
+            restore_record(associated_record, association_attributes)
           end
         elsif reflection.macro == :has_one
           associated_record = reflection.klass.new
-          associated_record.class.primary_key.each do |key|
-            associated_record.send("#{key.to_s}=", association_attributes[key.to_s])
-          end
-          exists = associated_record.class.find(associated_record.send(associated_record.class.primary_key)) rescue nil
+          restore_record(associated_record, association_attributes)
           record.send("#{association}=", associated_record)
         elsif reflection.macro == :has_and_belongs_to_many
           record.send("#{association.to_s.singularize}_ids=", association_attributes)
@@ -223,27 +199,41 @@ module ActsAsRevisionable
       rescue => e
         record.errors.add(association, "could not be restored from the revision: #{e.message}")
       end
+      
+      if associated_record && !associated_record.errors.empty?
+        record.errors.add(association, 'could not be restored from the revision')
+      end
+    end
 
-      return unless associated_record
+    # Restore a record and all its associations.
+    def restore_record(record, attributes)
+      primary_key = record.class.primary_key
+      primary_key = [primary_key] unless primary_key.is_a?(Array)
+      primary_key.each do |key|
+        record.send("#{key.to_s}=", attributes[key.to_s])
+      end
 
-      attrs, association_attrs = attributes_and_associations(associated_record.class, association_attributes)
+      attrs, association_attrs = attributes_and_associations(record.class, attributes)
       attrs.each_pair do |key, value|
         begin
-          associated_record.send("#{key}=", value)
+          record.send("#{key}=", value)
         rescue
-          associated_record.errors.add(key.to_sym, "could not be restored to #{value.inspect}")
-          record.errors.add(association, "could not be restored from the revision") unless record.errors[association]
+          record.errors.add(key.to_sym, "could not be restored to #{value.inspect}")
         end
       end
 
       association_attrs.each_pair do |key, values|
-        restore_association(associated_record, key, values)
+        restore_association(record, key, values) if values
       end
-
+      
+      # Check if the record already exists in the database and restore its state.
+      # This must be done last because otherwise associations on an existing record
+      # can be deleted when a revision is restored to memory.
+      exists = record.class.find(record.send(record.class.primary_key)) rescue nil
       if exists
-        associated_record.instance_variable_set(:@new_record, nil) if associated_record.instance_variable_defined?(:@new_record)
+        record.instance_variable_set(:@new_record, nil) if record.instance_variable_defined?(:@new_record)
         # ActiveRecord 3.0.2 and 3.0.3 used @persisted instead of @new_record
-        associated_record.instance_variable_set(:@persisted, true) if associated_record.instance_variable_defined?(:@persisted)
+        record.instance_variable_set(:@persisted, true) if record.instance_variable_defined?(:@persisted)
       end
     end
   end

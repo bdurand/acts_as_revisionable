@@ -31,7 +31,7 @@ describe ActsAsRevisionable::RevisionRecord do
         t.column :name, :string
         t.column :value, :integer
       end unless table_exists?
-      self.primary_key = [:first_id, :second_id]
+      set_primary_keys :first_id, :second_id
     end
 
     class TestRevisionableAssociationRecord < ActiveRecord::Base
@@ -346,17 +346,12 @@ describe ActsAsRevisionable::RevisionRecord do
     associated_record = TestRevisionableAssociationRecord.new
     associations.should_receive(:build).and_return(associated_record)
 
-    mock_record_errors = {}
-    restored.stub!(:errors).and_return(mock_record_errors)
-    mock_record_errors.should_receive(:add).with(:bad_association, "could not be restored to {\"id\"=>3, \"value\"=>:val}")
-    mock_record_errors.should_receive(:add).with(:deleted_attribute, 'could not be restored to "abc"')
-    mock_record_errors.should_receive(:add).with(:associations, 'could not be restored from the revision')
-
-    mock_association_errors = mock(:errors)
-    associated_record.stub!(:errors).and_return(mock_association_errors)
-    mock_association_errors.should_receive(:add).with(:other, 'could not be restored to "val2"')
-
     restored = revision.restore
+    
+    restored.errors[:deleted_attribute].should include("could not be restored to \"abc\"")
+    restored.errors[:bad_association].should include("could not be restored to {\"id\"=>3, \"value\"=>:val}")
+    restored.errors[:associations].should include("could not be restored from the revision")
+    associated_record.errors[:other].should include("could not be restored to \"val2\"")
   end
 
   it "should be able to truncate the revisions for a record" do

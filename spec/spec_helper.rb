@@ -1,4 +1,6 @@
 require 'rubygems'
+require 'logger'
+require 'stringio'
 
 if ENV["ACTIVE_RECORD_VERSION"]
   gem 'activerecord', ENV["ACTIVE_RECORD_VERSION"]
@@ -7,6 +9,8 @@ else
 end
 require 'active_record'
 ActiveRecord::ActiveRecordError
+
+ActiveRecord::Base.logger = Logger.new(StringIO.new)
 
 composite_primary_key_version = nil
 if defined?(ActiveRecord::VERSION::MAJOR)
