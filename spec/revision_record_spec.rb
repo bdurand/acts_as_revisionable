@@ -5,265 +5,229 @@ describe ActsAsRevisionable::RevisionRecord do
 
   before :all do
     ActsAsRevisionable::Test.create_database
+    
+    class TestRevisionableAssociationLegacyRecord < ActiveRecord::Base
+      connection.create_table(table_name, :id => false) do |t|
+        t.column :legacy_id, :integer
+        t.column :name, :string
+        t.column :value, :integer
+        t.column :test_revisionable_record_id, :integer
+      end unless table_exists?
+      self.primary_key = :legacy_id
+    end
+    
+    class TestRevisionableOneAssociationRecord < ActiveRecord::Base
+      connection.create_table(table_name, :id => false) do |t|
+        t.column :name, :string
+        t.column :value, :integer
+        t.column :test_revisionable_record_id, :integer
+      end unless table_exists?
+    end
+    
+    class TestRevisionableAssociationComposite < ActiveRecord::Base
+      connection.create_table(table_name, :id => false) do |t|
+        t.column :first_id, :integer
+        t.column :second_id, :integer
+        t.column :name, :string
+        t.column :value, :integer
+      end unless table_exists?
+      self.primary_key = [:first_id, :second_id]
+    end
+
+    class TestRevisionableAssociationRecord < ActiveRecord::Base
+      connection.create_table(table_name) do |t|
+        t.column :name, :string
+        t.column :value, :integer
+        t.column :test_revisionable_record_id, :integer
+      end unless table_exists?
+      
+      has_one :sub_association, :class_name => 'TestRevisionableSubAssociationRecord'
+    end
+
+    class OtherRevisionableRecordsTestRevisionableRecords < ActiveRecord::Base
+      connection.create_table(table_name, :id => false) do |t|
+        t.column :test_revisionable_record_id, :integer
+        t.column :other_revisionable_record_id, :integer
+      end unless table_exists?
+    end
+
+    class TestRevisionableSubAssociationRecord < ActiveRecord::Base
+      connection.create_table(table_name) do |t|
+        t.column :name, :string
+        t.column :value, :integer
+        t.column :test_revisionable_association_record_id, :integer
+      end unless table_exists?
+    end
+
+    module ActsAsRevisionable
+      class TestModuleRecord < ActiveRecord::Base
+        connection.create_table(table_name) do |t|
+          t.column :name, :string
+          t.column :value, :integer
+        end unless table_exists?
+      end
+    end
+
+    class TestRevisionableRecord < ActiveRecord::Base
+      connection.create_table(table_name) do |t|
+        t.column :name, :string
+        t.column :value, :integer
+        t.column :test_revisionable_one_association_record_id, :integer
+      end unless table_exists?
+      
+      has_many :associations, :class_name => 'TestRevisionableAssociationRecord'
+      has_many :legacy_associations, :class_name => 'TestRevisionableAssociationLegacyRecord'
+      has_many :composit_associations, :class_name => 'TestRevisionableAssociationComposite', :foreign_key => :first_id
+      has_and_belongs_to_many :other_revisionable_records
+      has_one :one_association, :class_name => 'TestRevisionableOneAssociationRecord'
+      
+      acts_as_revisionable :associations => [{:associations => :sub_association}, :one_association, :other_revisionable_records]
+    end
+    
+    class OtherRevisionableRecord < ActiveRecord::Base
+      connection.create_table(table_name) do |t|
+        t.column :name, :string
+        t.column :value, :integer
+        t.column :type, :string
+      end unless table_exists?
+    end
+    
+    class TestInheritanceRecord < OtherRevisionableRecord
+      def self.base_class
+        OtherRevisionableRecord
+      end
+    end
   end
 
   after :all do
     ActsAsRevisionable::Test.delete_database
   end
 
-  class TestRevisionableRecord
-    attr_accessor :attributes
-
-    def self.base_class
-      self
-    end
-
-    def self.primary_key
-      "id"
-    end
-
-    def self.inheritance_column
-      'type'
-    end
-
-    def self.store_full_sti_class
-      true
-    end
-
-    def initialize(attributes = {})
-      @attributes = attributes
-    end
-
-    def self.reflections
-      @reflections || {}
-    end
-
-    def self.reflections= (vals)
-      @reflections = vals
-    end
-
-    def id
-      attributes['id']
-    end
-
-    def id=(val)
-      attributes['id'] = val
-    end
-
-    def name=(val)
-      attributes['name'] = val
-    end
-
-    def value=(val)
-      attributes['value'] = val
-    end
-
-    def self.revisionable_associations
-      nil
-    end
-
-    def self.type_name_with_module (type_name)
-      type_name
-    end
-  end
-
-  class TestRevisionableAssociationLegacyRecord < TestRevisionableRecord
-    def self.primary_key
-      "legacy_id"
-    end
-
-    def legacy_id
-      attributes['legacy_id']
-    end
-
-    def legacy_id=(val)
-      attributes['legacy_id'] = val
-    end
-
-    def self.reflections
-      @reflections || {}
-    end
-
-    def self.reflections= (vals)
-      @reflections = vals
-    end
-  end
-
-  class TestRevisionableAssociationComposite < TestRevisionableRecord
-    def self.primary_key
-      [:first_id, :second_id]
-    end
-
-    def first_id
-      attributes['first_id']
-    end
-
-    def first_id=(val)
-      attributes['first_id'] = val
-    end
-
-    def second_id
-      attributes['second_id']
-    end
-
-    def second_id=(val)
-      attributes['second_id'] = val
-    end
-
-    def self.reflections
-      @reflections || {}
-    end
-
-    def self.reflections= (vals)
-      @reflections = vals
-    end
-  end
-
-  class TestRevisionableAssociationRecord < TestRevisionableRecord
-    def self.reflections
-      @reflections || {}
-    end
-
-    def self.reflections= (vals)
-      @reflections = vals
-    end
-  end
-
-  class TestRevisionableSubAssociationRecord < TestRevisionableRecord
-    def self.reflections
-      @reflections || {}
-    end
-
-    def self.reflections= (vals)
-      @reflections = vals
-    end
-  end
-
-  module ActsAsRevisionable
-    class TestModuleRecord < TestRevisionableRecord
-    end
-  end
-
-  class TestInheritanceRecord < TestRevisionableRecord
-    def self.base_class
-      TestRevisionableRecord
-    end
-
-    def initialize(attributes = {})
-      super({'type' => 'TestInheritanceRecord'}.merge(attributes))
-    end
-
-    def type=(val)
-      attributes['type'] = val
-    end
-  end
-
-  before(:each) do
-    TestRevisionableRecord.reflections = nil
-    TestRevisionableAssociationRecord.reflections = nil
-    TestRevisionableSubAssociationRecord.reflections = nil
+  before :each do
+    ActsAsRevisionable::RevisionRecord.delete_all
+    TestRevisionableRecord.delete_all
+    TestRevisionableAssociationLegacyRecord.delete_all
+    TestRevisionableAssociationRecord.delete_all
+    TestRevisionableSubAssociationRecord.delete_all
+    ActsAsRevisionable::TestModuleRecord.delete_all
+    OtherRevisionableRecord.delete_all
+    TestInheritanceRecord.delete_all
+    OtherRevisionableRecordsTestRevisionableRecords.delete_all
+    TestRevisionableOneAssociationRecord.delete_all
   end
 
   it "should set the revision number before it creates the record" do
-    ActsAsRevisionable::RevisionRecord.delete_all
-    revision1 = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new('id' => 1))
+    record = TestRevisionableRecord.create(:name => "test")
+    revision1 = ActsAsRevisionable::RevisionRecord.new(record)
     revision1.save!
-    revision2 = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new('id' => 1))
+    revision2 = ActsAsRevisionable::RevisionRecord.new(record)
     revision2.save!
     revision1.revision.should == 1
     revision2.revision.should == 2
     revision2.revision = 20
     revision2.save!
-    revision3 = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new('id' => 1))
+    revision3 = ActsAsRevisionable::RevisionRecord.new(record)
     revision3.save!
     revision3.revision.should == 21
-    ActsAsRevisionable::RevisionRecord.delete_all
   end
 
   it "should serialize all the attributes of the original model" do
-    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
-    original = TestRevisionableRecord.new(attributes)
+    original = TestRevisionableRecord.new('name' => 'revision', 'value' => 5)
+    original.id = 1
     revision = ActsAsRevisionable::RevisionRecord.new(original)
     revision.revisionable_id.should == 1
     revision.revisionable_type.should == "TestRevisionableRecord"
-    revision.revision_attributes.should == attributes
+    revision.revision_attributes['name'].should == 'revision'
+    revision.revision_attributes['value'].should == 5
   end
 
   it "should serialize all the attributes of revisionable has_many associations" do
-    attributes = {'id' => 1, 'name' => 'revision', 'value' => Time.now}
-    association_attributes_1 = {'id' => 2, 'name' => 'association_1'}
-    association_attributes_2 = {'id' => 3, 'name' => 'association_2'}
-    original = TestRevisionableRecord.new(attributes)
-    revisionable_associations = [TestRevisionableAssociationRecord.new(association_attributes_1), TestRevisionableAssociationRecord.new(association_attributes_2)]
-    revisionable_associations_reflection = stub(:association, :name => :revisionable_associations, :macro => :has_many, :options => {:dependent => :destroy})
-    non_revisionable_associations_reflection = stub(:association, :name => :non_revisionable_associations, :macro => :has_many, :options => {})
-
-    TestRevisionableRecord.should_receive(:revisionable_associations).and_return(:revisionable_associations => true)
-    TestRevisionableRecord.reflections = {:revisionable_associations => revisionable_associations_reflection, :non_revisionable_associations => non_revisionable_associations_reflection}
-    original.should_not_receive(:non_revisionable_associations)
-    original.should_receive(:revisionable_associations).and_return(revisionable_associations)
-
+    original = TestRevisionableRecord.new(:name => 'revision', :value => 1)
+    association_1 = original.associations.build(:name => 'association 1', :value => 2)
+    association_2 = original.associations.build(:name => 'association 2', :value => 3)
+    original.save!
     revision = ActsAsRevisionable::RevisionRecord.new(original)
-    revision.revision_attributes.should == attributes.merge('revisionable_associations' => [association_attributes_1, association_attributes_2])
+    revision.revision_attributes['associations'].should == [
+      {
+        "id" => association_1.id,
+        "name" => "association 1",
+        "value" => 2,
+        "test_revisionable_record_id" => original.id,
+        "sub_association" => nil
+      },
+      {
+        "id" => association_2.id,
+        "name" => "association 2",
+        "value" => 3,
+        "test_revisionable_record_id" => original.id,
+        "sub_association" => nil
+      }
+    ]
   end
 
   it "should serialize all the attributes of revisionable has_one associations" do
-    attributes = {'id' => 1, 'name' => 'revision', 'value' => Date.today}
-    association_attributes = {'id' => 2, 'name' => 'association_1'}
-    original = TestRevisionableRecord.new(attributes)
-    revisionable_association = TestRevisionableAssociationRecord.new(association_attributes)
-    revisionable_association_reflection = stub(:association, :name => :revisionable_association, :macro => :has_one, :options => {:dependent => :destroy})
-    non_revisionable_association_reflection = stub(:association, :name => :non_revisionable_association, :macro => :has_one, :options => {})
-
-    TestRevisionableRecord.should_receive(:revisionable_associations).and_return(:revisionable_association => true)
-    TestRevisionableRecord.reflections = {:revisionable_association => revisionable_association_reflection, :non_revisionable_association => non_revisionable_association_reflection}
-    original.should_not_receive(:non_revisionable_association)
-    original.should_receive(:revisionable_association).and_return(revisionable_association)
-
+    original = TestRevisionableRecord.new(:name => 'revision', :value => 1)
+    one = original.build_one_association(:name => 'one', :value => 2)
+    original.save!
     revision = ActsAsRevisionable::RevisionRecord.new(original)
-    revision.revision_attributes.should == attributes.merge('revisionable_association' => association_attributes)
+    revision.revision_attributes['one_association'].should == {
+      "id"=>one.id, "name"=>"one", "value"=>2, "test_revisionable_record_id"=>original.id
+    }
   end
 
   it "should serialize all revisionable has_many_and_belongs_to_many associations" do
-    attributes = {'id' => 1, 'name' => 'revision'}
-    original = TestRevisionableRecord.new(attributes)
-    revisionable_associations_reflection = stub(:association, :name => :revisionable_associations, :macro => :has_and_belongs_to_many, :options => {:dependent => :destroy})
-    non_revisionable_associations_reflection = stub(:association, :name => :non_revisionable_associations, :macro => :has_and_belongs_to_many, :options => {})
-
-    TestRevisionableRecord.should_receive(:revisionable_associations).and_return(:revisionable_associations => true)
-    TestRevisionableRecord.reflections = {:revisionable_associations => revisionable_associations_reflection, :non_revisionable_associations => non_revisionable_associations_reflection}
-    original.should_receive(:revisionable_association_ids).and_return([2, 3, 4])
-
+    original = TestRevisionableRecord.new(:name => 'revision', :value => 1)
+    other_1 = OtherRevisionableRecord.create(:name => "other 1")
+    other_2 = OtherRevisionableRecord.create(:name => "other 2")
+    other_3 = OtherRevisionableRecord.create(:name => "other 3")
+    original.other_revisionable_records << other_1
+    original.other_revisionable_records << other_2
+    original.other_revisionable_records << other_3
+    original.save!
     revision = ActsAsRevisionable::RevisionRecord.new(original)
-    revision.revision_attributes.should == attributes.merge('revisionable_associations' => [2, 3, 4])
+    revision.revision_attributes['other_revisionable_records'].sort.should == [other_1.id, other_2.id, other_3.id]
   end
 
-  it "should serialize revisionable associations of revisionable associations with :dependent => :destroy" do
-    attributes = {'id' => 1, 'name' => 'revision', 'value' => Time.now}
-    association_attributes_1 = {'id' => 2, 'name' => 'association_1'}
-    association_attributes_2 = {'id' => 3, 'name' => 'association_2'}
-    original = TestRevisionableRecord.new(attributes)
-    association_1 = TestRevisionableAssociationRecord.new(association_attributes_1)
-    association_2 = TestRevisionableAssociationRecord.new(association_attributes_2)
-    revisionable_associations = [association_1, association_2]
-    revisionable_associations_reflection = stub(:association, :name => :revisionable_associations, :macro => :has_many, :options => {:dependent => :destroy})
-    sub_association_attributes = {'id' => 4, 'name' => 'sub_association_1'}
-    sub_association = TestRevisionableSubAssociationRecord.new(sub_association_attributes)
-    sub_association_reflection = stub(:sub_association, :name => :sub_association, :macro => :has_one, :options => {:dependent => :destroy})
-
-    TestRevisionableRecord.should_receive(:revisionable_associations).and_return(:revisionable_associations => {:sub_association => true})
-    TestRevisionableRecord.reflections = {:revisionable_associations => revisionable_associations_reflection}
-    TestRevisionableAssociationRecord.reflections = {:sub_association => sub_association_reflection}
-    original.should_receive(:revisionable_associations).and_return(revisionable_associations)
-    association_1.should_receive(:sub_association).and_return(sub_association)
-    association_2.should_receive(:sub_association).and_return(nil)
-
+  it "should serialize revisionable associations of revisionable associations" do
+    original = TestRevisionableRecord.new(:name => 'revision', :value => 1)
+    association_1 = original.associations.build(:name => 'association 1', :value => 2)
+    association_2 = original.associations.build(:name => 'association 2', :value => 3)
+    sub_association = association_1.build_sub_association(:name => 'sub', :value => 4)
+    original.save!
     revision = ActsAsRevisionable::RevisionRecord.new(original)
-    revision.revision_attributes.should == attributes.merge('revisionable_associations' => [association_attributes_1.merge('sub_association' => sub_association_attributes), association_attributes_2.merge('sub_association' => nil)])
+    revision.revision_attributes.should == {
+      "id" => original.id,
+      "name" => "revision",
+      "value" => 1,
+      "associations" => [
+        {
+          "id" => association_1.id,
+          "name" => "association 1",
+          "value" => 2,
+          "test_revisionable_record_id" => original.id,
+          "sub_association" => {
+            "id" => sub_association.id,
+            "name" => "sub",
+            "value" => 4,
+            "test_revisionable_association_record_id" => association_1.id
+          }
+        },
+        {
+          "id" => association_2.id,
+          "name" => "association 2",
+          "value" => 3,
+          "test_revisionable_record_id" => original.id,
+          "sub_association" => nil
+        }
+      ],
+      "test_revisionable_one_association_record_id" => nil,
+      "other_revisionable_records" => [],
+      "one_association" => nil
+    }
   end
 
   it "should be able to restore the original model using Ruby serialization" do
-    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
+    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5, 'test_revisionable_one_association_record_id' => nil}
     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new(attributes), :ruby)
     revision.data = Zlib::Deflate.deflate(Marshal.dump(attributes))
     restored = revision.restore
@@ -273,7 +237,7 @@ describe ActsAsRevisionable::RevisionRecord do
   end
 
   it "should be able to restore the original model using YAML serialization" do
-    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
+    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5, 'test_revisionable_one_association_record_id' => nil}
     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new(attributes), :yaml)
     revision.data = Zlib::Deflate.deflate(YAML.dump(attributes))
     restored = revision.restore
@@ -283,7 +247,7 @@ describe ActsAsRevisionable::RevisionRecord do
   end
 
   it "should be able to restore the original model using XML serialization" do
-    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5}
+    attributes = {'id' => 1, 'name' => 'revision', 'value' => 5, 'test_revisionable_one_association_record_id' => nil}
     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new(attributes), :xml)
     revision.data = Zlib::Deflate.deflate(YAML.dump(attributes))
     restored = revision.restore
@@ -297,8 +261,6 @@ describe ActsAsRevisionable::RevisionRecord do
     attributes = {'id' => 1, 'name' => 'revision', 'value' => Time.now, :associations => {'id' => 2, 'value' => 'val'}}
     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     revision.data = Zlib::Deflate.deflate(Marshal.dump(attributes))
-    associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
-    TestRevisionableRecord.reflections = {:associations => associations_reflection}
     TestRevisionableRecord.should_receive(:new).and_return(restored)
     revision.should_receive(:restore_association).with(restored, :associations, {'id' => 2, 'value' => 'val'})
     restored = revision.restore
@@ -307,100 +269,69 @@ describe ActsAsRevisionable::RevisionRecord do
   it "should be able to restore the has_many associations" do
     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     record = TestRevisionableRecord.new
-
-    associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
-    TestRevisionableRecord.reflections = {:associations => associations_reflection}
-    associations = mock(:associations)
-    record.should_receive(:associations).and_return(associations)
-    associated_record = TestRevisionableAssociationRecord.new
-    associations.should_receive(:build).and_return(associated_record)
-
-    revision.send(:restore_association, record, :associations, {'id' => 1, 'value' => 'val'})
+    revision.send(:restore_association, record, :associations, {'id' => 1, 'name' => 'assoc', 'value' => 10})
+    record.associations.size.should == 1
+    associated_record = record.associations.first
     associated_record.id.should == 1
-    associated_record.attributes.should == {'id' => 1, 'value' => 'val'}
+    associated_record.name.should == 'assoc'
+    associated_record.value.should == 10
   end
 
   it "should be able to restore the has_many associations with a legacy primary key" do
-        revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
-        record = TestRevisionableRecord.new
-
-        associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
-        TestRevisionableRecord.reflections = {:associations => associations_reflection}
-        associations = mock(:associations)
-        record.should_receive(:associations).and_return(associations)
-        associated_record = TestRevisionableAssociationLegacyRecord.new
-        associations.should_receive(:build).and_return(associated_record)
-
-        revision.send(:restore_association, record, :associations, {'legacy_id' => 1, 'value' => 'val'})
-        associated_record.legacy_id.should == 1
-        associated_record.attributes.should == {'legacy_id' => 1, 'value' => 'val'}
-  end
-
-  it "should be able to restore the has_many associations with composite proimary keys" do
     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     record = TestRevisionableRecord.new
+    revision.send(:restore_association, record, :legacy_associations, {'legacy_id' => 1, 'name' => 'legacy', 'value' => 10})
+    record.legacy_associations.size.should == 1
+    associated_record = record.legacy_associations.first
+    associated_record.id.should == 1
+    associated_record.name.should == 'legacy'
+    associated_record.value.should == 10
+  end
 
-    associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
-    TestRevisionableRecord.reflections = {:associations => associations_reflection}
-    associations = mock(:associations)
-    record.should_receive(:associations).and_return(associations)
-    associated_record = TestRevisionableAssociationComposite.new
-    associations.should_receive(:build).and_return(associated_record)
-
-    revision.send(:restore_association, record, :associations, {'first_id' => 1, 'second_id' => 2, 'value' => 'val'})
+  it "should be able to restore the has_many associations with composite primary keys" do
+    revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
+    record = TestRevisionableRecord.new
+    revision.send(:restore_association, record, :composit_associations, {'first_id' => 1, 'second_id' => 2, 'name' => 'composit', 'value' => 10})
+    record.composit_associations.size.should == 1
+    associated_record = record.composit_associations.first
     associated_record.first_id.should == 1
     associated_record.second_id.should == 2
-    associated_record.attributes.should == {'first_id' => 1, 'second_id' => 2, 'value' => 'val'}
+    associated_record.name.should == 'composit'
+    associated_record.value.should == 10
   end
 
   it "should be able to restore the has_one associations" do
     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     record = TestRevisionableRecord.new
-
-    association_reflection = stub(:associations, :name => :association, :macro => :has_one, :klass => TestRevisionableAssociationRecord, :options => {:dependent => :destroy})
-    TestRevisionableRecord.reflections = {:association => association_reflection}
-    associated_record = TestRevisionableAssociationRecord.new
-    TestRevisionableAssociationRecord.should_receive(:new).and_return(associated_record)
-    record.should_receive(:association=).with(associated_record)
-
-    revision.send(:restore_association, record, :association, {'id' => 1, 'value' => 'val'})
-    associated_record.id.should == 1
-    associated_record.attributes.should == {'id' => 1, 'value' => 'val'}
+    revision.send(:restore_association, record, :one_association, {'id' => 1, 'name' => 'one', 'value' => 1})
+    record.one_association.id.should == 1
+    record.one_association.name.should == 'one'
+    record.one_association.value.should == 1
   end
 
   it "should be able to restore the has_and_belongs_to_many associations" do
+    other_1 = OtherRevisionableRecord.create(:name => "other 1")
+    other_2 = OtherRevisionableRecord.create(:name => "other 2")
+    other_3 = OtherRevisionableRecord.create(:name => "other 3")
     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     record = TestRevisionableRecord.new
-
-    associations_reflection = stub(:associations, :name => :associations, :macro => :has_and_belongs_to_many, :options => {})
-    TestRevisionableRecord.reflections = {:associations => associations_reflection}
-    record.should_receive(:association_ids=).with([2, 3, 4])
-
-    revision.send(:restore_association, record, :associations, [2, 3, 4])
+    revision.send(:restore_association, record, :other_revisionable_records, [other_1.id, other_2.id, other_3.id])
+    record.other_revisionable_records.collect{|r| r.id}.sort.should == [other_1.id, other_2.id, other_3.id]
   end
 
   it "should be able to restore associations of associations" do
     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     record = TestRevisionableRecord.new
-
-    associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
-    TestRevisionableRecord.reflections = {:associations => associations_reflection}
-    associations = mock(:associations)
-    record.should_receive(:associations).and_return(associations)
-    associated_record = TestRevisionableAssociationRecord.new
-    associations.should_receive(:build).and_return(associated_record)
-
-    sub_associated_record = TestRevisionableSubAssociationRecord.new
-    TestRevisionableAssociationRecord.should_receive(:new).and_return(sub_associated_record)
-    sub_association_reflection = stub(:sub_association, :name => :sub_association, :macro => :has_one, :klass => TestRevisionableAssociationRecord, :options => {:dependent => :destroy})
-    TestRevisionableAssociationRecord.reflections = {:sub_association => sub_association_reflection}
-    associated_record.should_receive(:sub_association=).with(sub_associated_record)
-
-    revision.send(:restore_association, record, :associations, {'id' => 1, 'value' => 'val', :sub_association => {'id' => 2, 'value' => 'sub'}})
+    revision.send(:restore_association, record, :associations, {'id' => 1, 'name' => 'assoc', 'value' => 10, :sub_association => {'id' => 2, 'name' => 'sub', 'value' => 1000}})
+    record.associations.size.should == 1
+    associated_record = record.associations.first
     associated_record.id.should == 1
-    associated_record.attributes.should == {'id' => 1, 'value' => 'val'}
+    associated_record.name.should == 'assoc'
+    associated_record.value.should == 10
+    sub_associated_record = associated_record.sub_association
     sub_associated_record.id.should == 2
-    sub_associated_record.attributes.should == {'id' => 2, 'value' => 'sub'}
+    sub_associated_record.name.should == 'sub'
+    sub_associated_record.value.should == 1000
   end
 
   it "should be able to restore a record for a model that has changed and add errors to the restored record" do
@@ -424,9 +355,6 @@ describe ActsAsRevisionable::RevisionRecord do
     mock_association_errors = mock(:errors)
     associated_record.stub!(:errors).and_return(mock_association_errors)
     mock_association_errors.should_receive(:add).with(:other, 'could not be restored to "val2"')
-
-    associations_reflection = stub(:associations, :name => :associations, :macro => :has_many, :options => {:dependent => :destroy})
-    TestRevisionableRecord.reflections = {:associations => associations_reflection}
 
     restored = revision.restore
   end
@@ -492,32 +420,42 @@ describe ActsAsRevisionable::RevisionRecord do
   end
 
   it "should really save the revision records to the database and restore without any mocking" do
-    ActsAsRevisionable::RevisionRecord.delete_all
     ActsAsRevisionable::RevisionRecord.count.should == 0
 
-    attributes = {'id' => 1, 'value' => rand(1000000)}
-    original = TestRevisionableRecord.new(attributes)
-    original.attributes['name'] = 'revision 1'
+    original = TestRevisionableRecord.create(:name => 'revision 1', :value => 100)
     ActsAsRevisionable::RevisionRecord.new(original).save!
     first_revision = ActsAsRevisionable::RevisionRecord.find(:first)
-    original.attributes['name'] = 'revision 2'
+    original.name = 'revision 2'
     ActsAsRevisionable::RevisionRecord.new(original).save!
-    original.attributes['name'] = 'revision 3'
+    original.name = 'revision 3'
     ActsAsRevisionable::RevisionRecord.new(original).save!
     ActsAsRevisionable::RevisionRecord.count.should == 3
 
-    record = ActsAsRevisionable::RevisionRecord.find_revision(TestRevisionableRecord, 1, 1).restore
+    record = ActsAsRevisionable::RevisionRecord.find_revision(TestRevisionableRecord, original.id, 1).restore
     record.class.should == TestRevisionableRecord
-    record.id.should == 1
-    record.attributes.should == attributes.merge('name' => 'revision 1')
+    record.id.should == original.id
+    record.name.should == 'revision 1'
+    record.value.should == 100
 
-    ActsAsRevisionable::RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => 2)
+    ActsAsRevisionable::RevisionRecord.truncate_revisions(TestRevisionableRecord, original.id, :limit => 2)
     ActsAsRevisionable::RevisionRecord.count.should == 2
     ActsAsRevisionable::RevisionRecord.find_by_id(first_revision.id).should == nil
-    ActsAsRevisionable::RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => 0, :minimum_age => 1.week)
+    ActsAsRevisionable::RevisionRecord.truncate_revisions(TestRevisionableRecord, original.id, :limit => 0, :minimum_age => 1.week)
     ActsAsRevisionable::RevisionRecord.count.should == 2
-    ActsAsRevisionable::RevisionRecord.truncate_revisions(TestRevisionableRecord, 1, :limit => 0)
+    ActsAsRevisionable::RevisionRecord.truncate_revisions(TestRevisionableRecord, original.id, :limit => 0)
     ActsAsRevisionable::RevisionRecord.count.should == 0
+  end
+  
+  it "should delete revisions for models in a class that no longer exist if they are older than a specified number of seconds" do
+    revision_1 = ActsAsRevisionable::RevisionRecord.create(TestRevisionableRecord.create(:name => 'record_1'))
+    revision_2 = ActsAsRevisionable::RevisionRecord.create(TestRevisionableAssociationLegacyRecord.create(:name => 'record_2'))
+    now = Time.now
+    Time.stub(:now => now + 60)
+    revision_3 = ActsAsRevisionable::RevisionRecord.create(TestRevisionableRecord.create(:name => 'record_3'))
+    ActsAsRevisionable::RevisionRecord.count.should == 3
+    ActsAsRevisionable::RevisionRecord.empty_trash(TestRevisionableRecord, 30)
+    ActsAsRevisionable::RevisionRecord.count.should == 2
+    ActsAsRevisionable::RevisionRecord.all.collect{|r| r.id}.sort.should == [revision_2.id, revision_3.id]
   end
 
 end

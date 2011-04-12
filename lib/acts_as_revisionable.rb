@@ -95,6 +95,11 @@ module ActsAsRevisionable
       return associations
     end
     
+    # Delete all revision records for deleted items that are older than the specified maximum age in seconds.
+    def empty_trash(max_age)
+      RevisionRecord.empty_trash(self, max_age)
+    end
+    
     private
     
     def save_restorable_associations(record, associations)

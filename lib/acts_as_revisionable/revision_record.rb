@@ -36,6 +36,14 @@ module ActsAsRevisionable
         end
       end
 
+      # Empty the trash by deleting records older than the specified maximum age in seconds.
+      # The +revisionable_type+ argument specifies the class to delete revision records for.
+      def empty_trash(revisionable_type, max_age)
+        sql = 'created_at <= ? AND revisionable_type = ? AND revisionable_id NOT IN (SELECT ? FROM ?)'
+        args = [max_age.ago, revisionable_type.name, revisionable_type.primary_key, revisionable_type.table_name]
+        delete_all([sql] + args)
+      end
+
       def create_table
         connection.create_table :revision_records do |t|
           t.string :revisionable_type, :null => false, :limit => 100
