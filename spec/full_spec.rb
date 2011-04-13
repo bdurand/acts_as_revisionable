@@ -1,9 +1,10 @@
-require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
+require 'spec_helper'
 
 describe "ActsAsRevisionable Full Test" do
 
   before(:all) do
     ActsAsRevisionable::Test.create_database
+    ActsAsRevisionable::RevisionRecord.create_table
 
     ActiveRecord::Base.store_full_sti_class = true
 
@@ -507,6 +508,18 @@ describe "ActsAsRevisionable Full Test" do
     restored.composite_key_things.collect{|t| t.name}.sort.should == ['thing_1', 'thing_2']
   end
   
+  it "should mark the last revision for a deleted record as being trash" do
+    model = ActsAsRevisionable::RevisionableNamespaceModel.new(:name => 'test')
+    model.save!
+    model.store_revision do
+      model.name = "new name"
+      model.save!
+    end
+    model.destroy
+    ActsAsRevisionable::RevisionRecord.count.should == 2
+    ActsAsRevisionable::RevisionRecord.last_revision(ActsAsRevisionable::RevisionableNamespaceModel, model.id).should be_trash  
+  end
+  
   it "should restore a deleted record" do
     model = ActsAsRevisionable::RevisionableNamespaceModel.new(:name => 'test')
     model.save!
@@ -516,7 +529,6 @@ describe "ActsAsRevisionable Full Test" do
     end
     model.destroy
     ActsAsRevisionable::RevisionRecord.count.should == 2
-    
-    model.restore_revision!(1)
+    ActsAsRevisionable::RevisionableNamespaceModel.restore_last_revision!(model.id)
   end
 end

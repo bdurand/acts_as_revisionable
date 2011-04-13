@@ -33,7 +33,6 @@ module ActsAsRevisionable
   module Test
     def self.create_database
       ActiveRecord::Base.establish_connection("adapter" => "sqlite3", "database" => ":memory:")
-      ActsAsRevisionable::RevisionRecord.create_table
     end
 
     def self.delete_database

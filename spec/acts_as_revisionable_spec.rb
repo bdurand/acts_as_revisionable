@@ -1,9 +1,10 @@
-require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
+require 'spec_helper'
 
 describe ActsAsRevisionable do
   
   before :all do
     ActsAsRevisionable::Test.create_database
+    ActsAsRevisionable::RevisionRecord.create_table
   end
   
   after :all do
@@ -15,8 +16,16 @@ describe ActsAsRevisionable do
     
     attr_accessor :id
     
+    def self.primary_key
+      :id
+    end
+    
     def update
       really_update
+    end
+    
+    def destroyed?
+      false
     end
     
     def really_update

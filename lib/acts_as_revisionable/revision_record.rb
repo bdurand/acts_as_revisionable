@@ -39,21 +39,36 @@ module ActsAsRevisionable
       # Empty the trash by deleting records older than the specified maximum age in seconds.
       # The +revisionable_type+ argument specifies the class to delete revision records for.
       def empty_trash(revisionable_type, max_age)
-        sql = 'created_at <= ? AND revisionable_type = ? AND revisionable_id NOT IN (SELECT ? FROM ?)'
-        args = [max_age.ago, revisionable_type.name, revisionable_type.primary_key, revisionable_type.table_name]
+        sql = "revisionable_id IN (SELECT revisionable_id from #{table_name} WHERE created_at <= ? AND revisionable_type = ? AND trash = ?) AND revisionable_type = ?"
+        args = [max_age.ago, revisionable_type.name, true, revisionable_type.name]
         delete_all([sql] + args)
       end
 
+      # Create the table to store revision records.
       def create_table
         connection.create_table :revision_records do |t|
           t.string :revisionable_type, :null => false, :limit => 100
           t.integer :revisionable_id, :null => false
           t.integer :revision, :null => false
-          t.binary :data, :limit => (connection.adapter_name == "MySQL" ? 5.megabytes : nil)
+          t.binary :data, :limit => (connection.adapter_name.match(/mysql/i) ? 5.megabytes : nil)
           t.timestamp :created_at, :null => false
+          t.boolean :trash, :default => false
         end
+        
+        connection.add_index :revision_records, :revisionable_id, :name => "revision_record_id"
+        connection.add_index :revision_records, [:revisionable_type, :created_at, :trash], :name => "revisionable_type_and_created_at"
+      end
+      
+      # Update a version 1.0.x table to the latest version. This method only needs to be called
+      # from a migration if you originally created the table with a version 1.0.x version of the gem.
+      def update_version_1_table
+        # Added in version 1.1.0
+        connection.add_column(:revision_records, :trash, :boolean, :default => false)
+        connection.add_index :revision_records, :revisionable_id, :name => "revision_record_id"
+        connection.add_index :revision_records, [:revisionable_type, :created_at, :trash], :name => "revisionable_type_and_created_at"
 
-        connection.add_index :revision_records, [:revisionable_type, :revisionable_id, :revision], :name => "revisionable", :unique => true
+        # Removed in 1.1.0
+        connection.remove_index(:revision_records, :name => "revisionable")
       end
     end
 
@@ -97,6 +112,12 @@ module ActsAsRevisionable
       record = restore_class.new
       restore_record(record, revision_attributes)
       return record
+    end
+    
+    # Mark this revision as being trash. When trash records are restored, all
+    # their revision history is restored as well.
+    def trash!
+      update_attribute(:trash, true)
     end
 
     private

@@ -1,10 +1,11 @@
-require File.expand_path(File.dirname(__FILE__) + '/spec_helper')
+require 'spec_helper'
 require 'zlib'
 
 describe ActsAsRevisionable::RevisionRecord do
 
   before :all do
     ActsAsRevisionable::Test.create_database
+    ActsAsRevisionable::RevisionRecord.create_table
     
     class TestRevisionableAssociationLegacyRecord < ActiveRecord::Base
       connection.create_table(table_name, :id => false) do |t|
@@ -442,15 +443,23 @@ describe ActsAsRevisionable::RevisionRecord do
   end
   
   it "should delete revisions for models in a class that no longer exist if they are older than a specified number of seconds" do
-    revision_1 = ActsAsRevisionable::RevisionRecord.create(TestRevisionableRecord.create(:name => 'record_1'))
-    revision_2 = ActsAsRevisionable::RevisionRecord.create(TestRevisionableAssociationLegacyRecord.create(:name => 'record_2'))
+    record_1 = TestRevisionableRecord.create(:name => 'record_1')
+    record_2 = TestRevisionableAssociationLegacyRecord.new(:name => 'record_2')
+    record_2.id = record_1.id
+    record_2.save!
+    revision_0 = ActsAsRevisionable::RevisionRecord.create(record_1)
+    revision_1 = ActsAsRevisionable::RevisionRecord.create(record_1)
+    revision_1.trash!
+    revision_2 = ActsAsRevisionable::RevisionRecord.create(record_2)
+    revision_2.trash!
+    revision_3 = ActsAsRevisionable::RevisionRecord.create(TestRevisionableRecord.create(:name => 'record_3'))
     now = Time.now
     Time.stub(:now => now + 60)
-    revision_3 = ActsAsRevisionable::RevisionRecord.create(TestRevisionableRecord.create(:name => 'record_3'))
-    ActsAsRevisionable::RevisionRecord.count.should == 3
+    revision_4 = ActsAsRevisionable::RevisionRecord.create(TestRevisionableRecord.create(:name => 'record_4'))
+    revision_4.trash!
+    ActsAsRevisionable::RevisionRecord.count.should == 5
     ActsAsRevisionable::RevisionRecord.empty_trash(TestRevisionableRecord, 30)
-    ActsAsRevisionable::RevisionRecord.count.should == 2
-    ActsAsRevisionable::RevisionRecord.all.collect{|r| r.id}.sort.should == [revision_2.id, revision_3.id]
+    ActsAsRevisionable::RevisionRecord.count.should == 3
+    ActsAsRevisionable::RevisionRecord.all.collect{|r| r.id}.sort.should == [revision_2.id, revision_3.id, revision_4.id]
   end
-
 end

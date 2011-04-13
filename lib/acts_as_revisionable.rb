@@ -15,13 +15,19 @@ module ActsAsRevisionable
     # kept for at least a certain amount of time (i.e. 2.weeks). Associations to be revisioned can be specified with
     # the :associations option as an array of association names. To specify associations of associations, use a hash
     # for that association with the association name as the key and the value as an array of sub associations.
-    # For instance, this declaration will revision :tags, :comments, as well as the :ratings association on :comments:
+    # For instance, this declaration will revision <tt>:tags</tt>, <tt>:comments</tt>, as well as the
+    # <tt>:ratings</tt> association on <tt>:comments</tt>:
     #
     #   :associations => [:tags, {:comments => [:ratings]}]
     #
-    # You can also pass an options of :on_update => true to automatically enable revisioning on every update.
+    # You can also pass an options of <tt>:on_update => true</tt> to automatically enable revisioning on every update.
     # Otherwise you will need to perform your updates in a store_revision block. The reason for this is so that
     # revisions for complex models with associations can be better controlled.
+    #
+    # You can keep a revisions of deleted records by passing <tt>:dependent => :keep</tt>. When a record is destroyed,
+    # an additional revision will be created and marked as trash. Trash records can be deleted by calling the
+    # <tt>empty_trash</tt> method. You can set <tt>:on_destroy => true</tt> to automatically create the trash revision
+    # whenever a record is destroyed. It is recommended that you turn both of these features on.
     #
     # A has_many :revision_records will also be added to the model for accessing the revisions.
     def acts_as_revisionable(options = {})
@@ -166,14 +172,21 @@ module ActsAsRevisionable
               retval = yield
             end
             
-            raise 'rollback_revision' unless errors.empty?
+            raise ActiveRecord::Rollback unless errors.empty?
+            
+            destroyed = false
+            if respond_to?(:destroyed?)
+              destroyed = destroyed?
+            else
+              destroyed = self.class.count(:conditions => {self.class.primary_key => self.id})
+            end
+            revision.trash! if destroyed
           end
         rescue => e
           # In case the database doesn't support transactions
           if revision
             revision.destroy rescue nil
           end
-          raise e unless e.message == 'rollback_revision'
         end
         return retval
       end

@@ -49,9 +49,13 @@ To create the table structure for ActsAsRevisionable::RevisionRecord, simply add
 
   ActsAsRevisionable::RevisionRecord.create_table
 
+Note that the table definition changed from version 1.0.x to 1.1.x. If you originally created the table with version 1.0.x, you'll need to add another migration containing:
+
+  ActsAsRevisionable::RevisionRecord.update_version_1_table
+
 == Destroying
 
-By default, the revision history of a record is destroyed along with the record. If you'd like to keep the history and be able to restore deleted records, then you can specify <tt>:dependent => :keep, :on_destroy => true</tt> in options of the +acts_as_revisionable_+ call. This will keep the revision records and also automatically wrap all destroy calls in a +store_revision+ block.
+By default, the revision history of a record is destroyed along with the record. If you'd like to keep the history and be able to restore deleted records, then you can specify <tt>:dependent => :keep, :on_destroy => true</tt> in options of the +acts_as_revisionable+ call. This will keep the revision records and also automatically wrap all destroy calls in a +store_revision+ block. It is highly recommended that you turn on these options.
 
 Destroyed records can be restored by restoring the last revision.
 
