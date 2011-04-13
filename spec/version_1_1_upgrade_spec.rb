@@ -29,9 +29,13 @@ describe "upgrade to version 1.1" do
     trash_column.type.should == :boolean
     trash_column.default.should == false
     
-    connection.index_name_exists?(:revision_records, "revisionable", true).should_not
-    connection.index_exists?(:revision_records, :revisionable_id, :name => "revision_record_id").should
-    connection.index_exists?(:revision_records, [:revisionable_type, :created_at, :trash], :name => "revisionable_type_and_created_at").should
+    if connection.respond_to?(:index_exists?)
+      connection.index_exists?(:revision_records, [:revisionable_type, :revisionable_id, :revision], :name => "revisionable", :unique => true).should_not
+      connection.index_exists?(:revision_records, :revisionable_id, :name => "revision_record_id").should
+      connection.index_exists?(:revision_records, [:revisionable_type, :created_at, :trash], :name => "revisionable_type_and_created_at").should
+    else
+      STDERR.puts("Could not check if indexes were updated with this version of ActiveRecord")
+    end
   end
   
 end

@@ -44,18 +44,28 @@ module ActsAsRevisionable
   end
   
   module ClassMethods
+    # Get a revision for a specified id.
+    def revision(id, revision_number)
+      RevisionRecord.find_revision(self, id, revision_number)
+    end
+    
+    # Get the last revision for a specified id.
+    def last_revision(id)
+      RevisionRecord.last_revision(self, id)
+    end
+    
     # Load a revision for a record with a particular id. Associations added since the revision
     # was created will still be in the restored record.
     # If you want to save a revision with associations properly, use restore_revision!
-    def restore_revision(id, revision)
-      revision_record = RevisionRecord.find_revision(self, id, revision)
+    def restore_revision(id, revision_number)
+      revision_record = revision(id, revision_number)
       return revision_record.restore if revision_record
     end
 
     # Load a revision for a record with a particular id and save it to the database. You should
     # always use this method to save a revision if it has associations.
-    def restore_revision!(id, revision)
-      record = restore_revision(id, revision)
+    def restore_revision!(id, revision_number)
+      record = restore_revision(id, revision_number)
       if record
         record.store_revision do
           save_restorable_associations(record, revisionable_associations)
@@ -68,7 +78,7 @@ module ActsAsRevisionable
     # was created will still be in the restored record.
     # If you want to save a revision with associations properly, use restore_last_revision!
     def restore_last_revision(id)
-      revision_record = RevisionRecord.last_revision(self, id)
+      revision_record = last_revision(id)
       return revision_record.restore if revision_record
     end
 
@@ -123,7 +133,7 @@ module ActsAsRevisionable
               end
             else
               if reflection == :has_many
-                existing = associated_records.find(:all)
+                existing = associated_records.all
                 existing.each do |existing_association|
                   associated_records.delete(existing_association) unless associated_records.include?(existing_association)
                 end
@@ -144,13 +154,23 @@ module ActsAsRevisionable
   module InstanceMethods
     # Restore a revision of the record and return it. The record is not saved to the database. If there
     # is a problem restoring values, errors will be added to the record.
-    def restore_revision(revision)
-      self.class.restore_revision(self.id, revision)
+    def restore_revision(revision_number)
+      self.class.restore_revision(self.id, revision_number)
     end
     
     # Restore a revision of the record and save it along with restored associations.
-    def restore_revision!(revision)
-      self.class.restore_revision!(self.id, revision)
+    def restore_revision!(revision_number)
+      self.class.restore_revision!(self.id, revision_number)
+    end
+    
+    # Get a specified revision record
+    def revision(revision_number)
+      self.class.revision(id, revision_number)
+    end
+    
+    # Get the last revision record
+    def last_revision
+      self.class.last_revision(id)
     end
     
     # Call this method to implement revisioning. The object changes should happen inside the block.
@@ -162,10 +182,15 @@ module ActsAsRevisionable
         revision = nil
         begin
           RevisionRecord.transaction do
-            read_only = self.class.find(self.id, :readonly => true) rescue nil
-            if read_only
-              revision = read_only.create_revision!
-              truncate_revisions!
+            begin
+              read_only = self.class.first(:conditions => {self.class.primary_key => self.id}, :readonly => true)
+              if read_only
+                revision = read_only.create_revision!
+                truncate_revisions!
+              end
+            rescue => e
+              puts e
+              logger.warn(e) if logger
             end
             
             disable_revisioning do
@@ -174,19 +199,19 @@ module ActsAsRevisionable
             
             raise ActiveRecord::Rollback unless errors.empty?
             
-            destroyed = false
-            if respond_to?(:destroyed?)
-              destroyed = destroyed?
-            else
-              destroyed = self.class.count(:conditions => {self.class.primary_key => self.id})
-            end
-            revision.trash! if destroyed
+            revision.trash! if destroyed?
           end
         rescue => e
           # In case the database doesn't support transactions
           if revision
-            revision.destroy rescue nil
+            begin
+              revision.destroy
+            rescue => e
+              puts e
+              logger.warn(e) if logger
+            end
           end
+          raise e
         end
         return retval
       end

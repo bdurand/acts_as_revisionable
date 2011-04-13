@@ -8,19 +8,17 @@ else
   gem 'activerecord'
 end
 require 'active_record'
+require 'active_record/version'
 ActiveRecord::ActiveRecordError
 
 ActiveRecord::Base.logger = Logger.new(StringIO.new)
+puts "Testing with ActiveRecord #{ActiveRecord::VERSION::STRING}"
 
 composite_primary_key_version = nil
-if defined?(ActiveRecord::VERSION::MAJOR)
-  if ActiveRecord::VERSION::MAJOR >= 3
-    composite_primary_key_version = ">=3.0.0"
-  else
-    composite_primary_key_version = "~>2.3.5"
-  end
-elsif ENV["ACTIVE_RECORD_VERSION"] && ENV["ACTIVE_RECORD_VERSION"].match(/[^0-9]*2\.2/)
-  composite_primary_key_version = "~>2.2.0"
+if ActiveRecord::VERSION::MAJOR >= 3
+  composite_primary_key_version = ">=3.0.0"
+else
+  composite_primary_key_version = "~>2.3.5"
 end
 
 gem 'composite_primary_keys', composite_primary_key_version

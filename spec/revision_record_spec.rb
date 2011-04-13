@@ -420,7 +420,7 @@ describe ActsAsRevisionable::RevisionRecord do
 
     original = TestRevisionableRecord.create(:name => 'revision 1', :value => 100)
     ActsAsRevisionable::RevisionRecord.new(original).save!
-    first_revision = ActsAsRevisionable::RevisionRecord.find(:first)
+    first_revision = ActsAsRevisionable::RevisionRecord.first
     original.name = 'revision 2'
     ActsAsRevisionable::RevisionRecord.new(original).save!
     original.name = 'revision 3'

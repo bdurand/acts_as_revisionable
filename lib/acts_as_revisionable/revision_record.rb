@@ -53,6 +53,7 @@ module ActsAsRevisionable
           t.binary :data, :limit => (connection.adapter_name.match(/mysql/i) ? 5.megabytes : nil)
           t.timestamp :created_at, :null => false
           t.boolean :trash, :default => false
+          t.string :label, :limit => 255, :null => true
         end
         
         connection.add_index :revision_records, :revisionable_id, :name => "revision_record_id"
@@ -64,6 +65,7 @@ module ActsAsRevisionable
       def update_version_1_table
         # Added in version 1.1.0
         connection.add_column(:revision_records, :trash, :boolean, :default => false)
+        connection.add_column(:revision_records, :label, :string, :limit => 255, :null => true)
         connection.add_index :revision_records, :revisionable_id, :name => "revision_record_id"
         connection.add_index :revision_records, [:revisionable_type, :created_at, :trash], :name => "revisionable_type_and_created_at"
 
