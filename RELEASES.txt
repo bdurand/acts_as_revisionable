@@ -1,0 +1,7 @@
+1.1.0
+
+- Add support for compound_primary_keys gem
+- Incorporate acts_as_trashable functionality
+- More helper functions for finding revisions from the model
+- Remove support for ActiveRecord < 2.3.5
+- Users of earlier versions will need to upgrade the table with a migration
