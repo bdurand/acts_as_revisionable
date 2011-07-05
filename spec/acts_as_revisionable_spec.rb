@@ -37,7 +37,7 @@ describe ActsAsRevisionable do
         t.column :revisionable_test_model_id, :integer
         t.column :other_id, :integer
       end unless table_exists?
-      set_primary_keys :revisionable_test_model_id, :other_id
+      set_primary_keys "revisionable_test_model_id", "other_id"
       belongs_to :revisionable_test_model
     end
 

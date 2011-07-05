@@ -33,9 +33,11 @@ begin
     gem.email = "brian@embellishedvisions.com"
     gem.homepage = "http://github.com/bdurand/acts_as_revisionable"
     gem.authors = ["Brian Durand"]
-    gem.rdoc_options = ["--charset=UTF-8", "--main", "README.rdoc", "MIT-LICENSE"]
+    gem.files = FileList["lib/**/*", "spec/**/*", "README.rdoc", "Rakefile", "MIT-LICENSE"].to_a
+    gem.has_rdoc = true
+    gem.extra_rdoc_files = ["README.rdoc", "MIT_LICENSE"]
     
-    gem.add_dependency('activerecord', '>= 2.3.5')
+    gem.add_dependency('activerecord', '>= 2.3.9')
     gem.add_development_dependency('composite_primary_keys')
     gem.add_development_dependency('sqlite3')
     gem.add_development_dependency('rspec', '>= 2.0.0')

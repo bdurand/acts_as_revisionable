@@ -14,7 +14,7 @@ describe ActsAsRevisionable::RevisionRecord do
         t.column :value, :integer
         t.column :test_revisionable_record_id, :integer
       end unless table_exists?
-      self.primary_key = :legacy_id
+      self.primary_key = "legacy_id"
     end
     
     class TestRevisionableOneAssociationRecord < ActiveRecord::Base
@@ -32,7 +32,7 @@ describe ActsAsRevisionable::RevisionRecord do
         t.column :name, :string
         t.column :value, :integer
       end unless table_exists?
-      set_primary_keys :first_id, :second_id
+      set_primary_keys "first_id", "second_id"
     end
 
     class TestRevisionableAssociationRecord < ActiveRecord::Base
@@ -172,7 +172,7 @@ describe ActsAsRevisionable::RevisionRecord do
     original.save!
     revision = ActsAsRevisionable::RevisionRecord.new(original)
     revision.revision_attributes['one_association'].should == {
-      "id"=>one.id, "name"=>"one", "value"=>2, "test_revisionable_record_id"=>original.id
+      "name"=>"one", "value"=>2, "test_revisionable_record_id"=>original.id
     }
   end
 
@@ -444,7 +444,7 @@ describe ActsAsRevisionable::RevisionRecord do
   
   it "should delete revisions for models in a class that no longer exist if they are older than a specified number of seconds" do
     record_1 = TestRevisionableRecord.create(:name => 'record_1')
-    record_2 = TestRevisionableAssociationLegacyRecord.new(:name => 'record_2')
+    record_2 = TestRevisionableAssociationLegacyRecord.create!(:name => 'record_2')
     record_2.id = record_1.id
     record_2.save!
     revision_0 = ActsAsRevisionable::RevisionRecord.create(record_1)

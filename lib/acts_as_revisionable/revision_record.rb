@@ -154,6 +154,8 @@ module ActsAsRevisionable
     def serialize_attributes(record, revisionable_associations, already_serialized = {})
       return if already_serialized["#{record.class}.#{record.id}"]
       attrs = record.attributes.dup
+      primary_key = record.class.primary_key.to_s if record.class.primary_key
+      attrs.delete(primary_key) unless record.class.columns_hash.include?(primary_key)
       already_serialized["#{record.class}.#{record.id}"] = true
 
       if revisionable_associations.kind_of?(Hash)
@@ -231,7 +233,7 @@ module ActsAsRevisionable
     # Restore a record and all its associations.
     def restore_record(record, attributes)
       primary_key = record.class.primary_key
-      primary_key = [primary_key] unless primary_key.is_a?(Array)
+      primary_key = [primary_key].compact unless primary_key.is_a?(Array)
       primary_key.each do |key|
         record.send("#{key.to_s}=", attributes[key.to_s])
       end
