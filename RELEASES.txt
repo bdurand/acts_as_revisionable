@@ -1,3 +1,7 @@
+1.1.2
+
+- Add support for labels on revision records
+
 1.1.1
 
 - Compatibility with ActiveRecord 3.1.0.rc4

@@ -94,7 +94,7 @@ describe ActsAsRevisionable do
         t.column :secret, :integer
       end unless table_exists?
       
-      acts_as_revisionable :on_update => true
+      acts_as_revisionable :on_update => true, :label => lambda{|record| "name was '#{record.name}'"}
     end
 
     module ActsAsRevisionable
@@ -264,6 +264,14 @@ describe ActsAsRevisionable do
       ActsAsRevisionable::RevisionRecord.count.should == 0
       record_1.create_revision!
       ActsAsRevisionable::RevisionRecord.count.should == 1
+    end
+  
+    it "should yield to the label proc when creating a revision record" do
+      record_1 = OtherRevisionableTestModel.create(:name => "test")
+      ActsAsRevisionable::RevisionRecord.count.should == 0
+      record_1.create_revision!
+      ActsAsRevisionable::RevisionRecord.count.should == 1
+      record_1.last_revision.label.should == "name was 'test'"
     end
   
     it "should not create a revision entry if revisioning is disabled" do

@@ -29,9 +29,15 @@ module ActsAsRevisionable
     # <tt>empty_trash</tt> method. You can set <tt>:on_destroy => true</tt> to automatically create the trash revision
     # whenever a record is destroyed. It is recommended that you turn both of these features on.
     #
+    # Revision records have an optional +label+ field which can be used for display purposes to distinguish revisions
+    # in a view. This value will only be set if you provide a Proc for the <tt>:label</tt> option to the +acts_as_revisionable+
+    # call. The proc will be yielded to with the record before it is revisioned.
+    #
+    #   acts_as_revisionable :label => lambda{|record| "Updated by #{record.updated_by} at #{record.updated_at}"}
+    #
     # A has_many :revision_records will also be added to the model for accessing the revisions.
     def acts_as_revisionable(options = {})
-      class_attribute :acts_as_revisionable_options
+      class_attribute :acts_as_revisionable_options, :instance_writer => false, :instance_reader => false
       self.acts_as_revisionable_options = options.clone
         extend ClassMethods
       include InstanceMethods
@@ -220,6 +226,9 @@ module ActsAsRevisionable
     # Create a revision record based on this record and save it to the database.
     def create_revision!
       revision = RevisionRecord.new(self, acts_as_revisionable_options[:encoding])
+      if self.acts_as_revisionable_options[:label].is_a?(Proc)
+        revision.label = self.acts_as_revisionable_options[:label].call(self)
+      end
       revision.save!
       return revision
     end
