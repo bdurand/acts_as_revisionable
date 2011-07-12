@@ -5,6 +5,7 @@
 1.1.1
 
 - Compatibility with ActiveRecord 3.1.0.rc4
+- Remove support for ActiveRecord < 2.3.9
 
 1.1.0
 
