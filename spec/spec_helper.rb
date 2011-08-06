@@ -3,6 +3,7 @@ require 'logger'
 require 'stringio'
 
 if ENV["ACTIVE_RECORD_VERSION"]
+  gem 'activesupport', ENV["ACTIVE_RECORD_VERSION"]
   gem 'activerecord', ENV["ACTIVE_RECORD_VERSION"]
 else
   gem 'activerecord'

@@ -1,3 +1,7 @@
+1.2.0
+ - Removed label column from revision_records table
+ - Added support for customizing and subclassing RevisionRecord
+
 1.1.2
 
 - Add support for labels on revision records

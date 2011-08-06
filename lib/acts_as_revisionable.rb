@@ -29,19 +29,37 @@ module ActsAsRevisionable
     # <tt>empty_trash</tt> method. You can set <tt>:on_destroy => true</tt> to automatically create the trash revision
     # whenever a record is destroyed. It is recommended that you turn both of these features on.
     #
-    # Revision records have an optional +label+ field which can be used for display purposes to distinguish revisions
-    # in a view. This value will only be set if you provide a Proc for the <tt>:label</tt> option to the +acts_as_revisionable+
-    # call. The proc will be yielded to with the record before it is revisioned.
+    # Revision records can be extended to include other fields as needed and set with the <tt>:meta</tt> option.
+    # In order to extend a revision record, you must add columns to the database table. The values of the <tt>:meta</tt>
+    # option hash will be provided to the newly created revision record.
     #
-    #   acts_as_revisionable :label => lambda{|record| "Updated by #{record.updated_by} at #{record.updated_at}"}
+    #   acts_as_revisionable :meta => {
+    #     :updated_by => :last_updated_by,
+    #     :label => lambda{|record| "Updated by #{record.updated_by} at #{record.updated_at}"},
+    #     :version => 1
+    #   }
+    #
+    # The values to the <tt>:meta</tt> hash can be either symbols or Procs. If it is a symbol, the method
+    # so named will be called on the record being revisioned. If it is a Proc, it will be called with the
+    # record as the argument. Any other class will be sent directly to the revision record.
+    #
+    # You can also use a subclass of RevisionRecord if desired so that you can add your own model logic as
+    # necessary. To specify a different class to use for revision records, simply subclass RevisionRecord and
+    # provide the class name to the <tt>:class_name</tt> option.
+    #
+    #   acts_as_revisionable :class_name => "MyRevisionRecord"
     #
     # A has_many :revision_records will also be added to the model for accessing the revisions.
     def acts_as_revisionable(options = {})
       class_attribute :acts_as_revisionable_options, :instance_writer => false, :instance_reader => false
-      self.acts_as_revisionable_options = options.clone
-        extend ClassMethods
+      defaults = {:class_name => "ActsAsRevisionable::RevisionRecord"}
+      self.acts_as_revisionable_options = defaults.merge(options)
+      acts_as_revisionable_options[:class_name] = acts_as_revisionable_options[:class_name].name if acts_as_revisionable_options[:class_name].is_a?(Class)
+      extend ClassMethods
       include InstanceMethods
-      has_many_options = {:as => :revisionable, :order => 'revision DESC', :class_name => "ActsAsRevisionable::RevisionRecord"}
+      class_name = 
+      class_name = acts_as_revisionable_options[:class_name].to_s if acts_as_revisionable_options[:class_name]
+      has_many_options = {:as => :revisionable, :order => 'revision DESC', :class_name => class_name}
       has_many_options[:dependent] = :destroy unless options[:dependent] == :keep
       has_many :revision_records, has_many_options
       alias_method_chain :update, :revision if options[:on_update]
@@ -52,12 +70,12 @@ module ActsAsRevisionable
   module ClassMethods
     # Get a revision for a specified id.
     def revision(id, revision_number)
-      RevisionRecord.find_revision(self, id, revision_number)
+      revision_record_class.find_revision(self, id, revision_number)
     end
     
     # Get the last revision for a specified id.
     def last_revision(id)
-      RevisionRecord.last_revision(self, id)
+      revision_record_class.last_revision(self, id)
     end
     
     # Load a revision for a record with a particular id. Associations added since the revision
@@ -119,7 +137,11 @@ module ActsAsRevisionable
     
     # Delete all revision records for deleted items that are older than the specified maximum age in seconds.
     def empty_trash(max_age)
-      RevisionRecord.empty_trash(self, max_age)
+      revision_record_class.empty_trash(self, max_age)
+    end
+        
+    def revision_record_class
+      acts_as_revisionable_options[:class_name].constantize
     end
     
     private
@@ -187,7 +209,7 @@ module ActsAsRevisionable
         retval = nil
         revision = nil
         begin
-          RevisionRecord.transaction do
+          revision_record_class.transaction do
             begin
               read_only = self.class.first(:conditions => {self.class.primary_key => self.id}, :readonly => true)
               if read_only
@@ -225,9 +247,17 @@ module ActsAsRevisionable
     
     # Create a revision record based on this record and save it to the database.
     def create_revision!
-      revision = RevisionRecord.new(self, acts_as_revisionable_options[:encoding])
-      if self.acts_as_revisionable_options[:label].is_a?(Proc)
-        revision.label = self.acts_as_revisionable_options[:label].call(self)
+      revision = revision_record_class.new(self, acts_as_revisionable_options[:encoding])
+      if self.acts_as_revisionable_options[:meta].is_a?(Hash)
+        self.acts_as_revisionable_options[:meta].each do |attribute, value|
+          case value
+          when Symbol
+            value = self.send(value)
+          when Proc
+            value = value.call(self)
+          end
+          revision.send("#{attribute}=", value)
+        end
       end
       revision.save!
       return revision
@@ -236,7 +266,7 @@ module ActsAsRevisionable
     # Truncate the number of revisions kept for this record. Available options are :limit and :minimum_age.
     def truncate_revisions!(options = nil)
       options = {:limit => acts_as_revisionable_options[:limit], :minimum_age => acts_as_revisionable_options[:minimum_age]} unless options
-      RevisionRecord.truncate_revisions(self.class, self.id, options)
+      revision_record_class.truncate_revisions(self.class, self.id, options)
     end
     
     # Disable the revisioning behavior inside of a block passed to the method.
@@ -257,6 +287,10 @@ module ActsAsRevisionable
       store_revision do
         destroy_without_revision
       end
+    end
+    
+    def revision_record_class
+      self.class.revision_record_class
     end
     
     private

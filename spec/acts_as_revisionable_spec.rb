@@ -88,13 +88,22 @@ describe ActsAsRevisionable do
       end
     end
     
+    class RevisionRecord2 < ActsAsRevisionable::RevisionRecord
+      set_table_name "revision_records_2"
+      create_table
+      connection.add_column(table_name, :label, :string)
+      connection.add_column(table_name, :updated_by, :string)
+      connection.add_column(table_name, :version, :integer)
+    end
+    
     class OtherRevisionableTestModel < ActiveRecord::Base
       connection.create_table(table_name) do |t|
-        t.column :name, :string
-        t.column :secret, :integer
+        t.string :name
+        t.integer :secret
+        t.string :updated_by
       end unless table_exists?
       
-      acts_as_revisionable :on_update => true, :label => lambda{|record| "name was '#{record.name}'"}
+      acts_as_revisionable :on_update => true, :meta => {:label => lambda{|record| "name was '#{record.name}'"}, :updated_by => :updated_by, :version => 1}, :class_name => RevisionRecord2
     end
 
     module ActsAsRevisionable
@@ -129,6 +138,7 @@ describe ActsAsRevisionable do
     ActsAsRevisionable::RevisionRecord.delete_all
     ActsAsRevisionable::RevisionableNamespaceModel.delete_all
     OtherRevisionableTestModel.delete_all
+    RevisionRecord2.delete_all
   end
 
   context "injected methods" do
@@ -146,13 +156,13 @@ describe ActsAsRevisionable do
   end
   
   context "accessing revisions" do
-    let(:record_1){ RevisionableTestModel.create(:name => "record 1") }
-    let(:record_2){ OtherRevisionableTestModel.create(:name => "record 2") }
+    let(:record_1){ RevisionableTestModel.create!(:name => "record 1") }
+    let(:record_2){ OtherRevisionableTestModel.create!(:name => "record 2") }
     
     it "should be able to get a revision for a model" do
-      revision_1 = ActsAsRevisionable::RevisionRecord.create(record_1)
-      revision_2 = ActsAsRevisionable::RevisionRecord.create(record_1)
-      revision_3 = ActsAsRevisionable::RevisionRecord.create(record_2)
+      revision_1 = ActsAsRevisionable::RevisionRecord.create!(record_1)
+      revision_2 = ActsAsRevisionable::RevisionRecord.create!(record_1)
+      revision_3 = RevisionRecord2.create!(record_2)
       record_1.revision(1).should == revision_1
       record_1.revision(2).should == revision_2
       record_1.revision(3).should == nil
@@ -160,9 +170,9 @@ describe ActsAsRevisionable do
     end
     
     it "should be able to get a revision for an id" do
-      revision_1 = ActsAsRevisionable::RevisionRecord.create(record_1)
-      revision_2 = ActsAsRevisionable::RevisionRecord.create(record_1)
-      revision_3 = ActsAsRevisionable::RevisionRecord.create(record_2)
+      revision_1 = ActsAsRevisionable::RevisionRecord.create!(record_1)
+      revision_2 = ActsAsRevisionable::RevisionRecord.create!(record_1)
+      revision_3 = RevisionRecord2.create!(record_2)
       RevisionableTestModel.revision(record_1.id, 1).should == revision_1
       RevisionableTestModel.revision(record_1.id, 2).should == revision_2
       RevisionableTestModel.revision(record_1.id, 3).should == nil
@@ -170,17 +180,17 @@ describe ActsAsRevisionable do
     end
     
     it "should be able to get the last revision for a model" do
-      revision_1 = ActsAsRevisionable::RevisionRecord.create(record_1)
-      revision_2 = ActsAsRevisionable::RevisionRecord.create(record_1)
-      revision_3 = ActsAsRevisionable::RevisionRecord.create(record_2)
+      revision_1 = ActsAsRevisionable::RevisionRecord.create!(record_1)
+      revision_2 = ActsAsRevisionable::RevisionRecord.create!(record_1)
+      revision_3 = RevisionRecord2.create!(record_2)
       record_1.last_revision.should == revision_2
       record_2.last_revision.should == revision_3
     end
     
     it "should be able to get the last revision for an id" do
-      revision_1 = ActsAsRevisionable::RevisionRecord.create(record_1)
-      revision_2 = ActsAsRevisionable::RevisionRecord.create(record_1)
-      revision_3 = ActsAsRevisionable::RevisionRecord.create(record_2)
+      revision_1 = ActsAsRevisionable::RevisionRecord.create!(record_1)
+      revision_2 = ActsAsRevisionable::RevisionRecord.create!(record_1)
+      revision_3 = RevisionRecord2.create!(record_2)
       RevisionableTestModel.last_revision(record_1.id).should == revision_2
       OtherRevisionableTestModel.last_revision(record_2.id).should == revision_3
     end
@@ -196,7 +206,7 @@ describe ActsAsRevisionable do
     end
     
     it "should only store revisions when a record is updated in a store_revision block" do
-      record = RevisionableTestModel.create(:name => "test")
+      record = RevisionableTestModel.create!(:name => "test")
       record.name = "new name"
       record.save!
       ActsAsRevisionable::RevisionRecord.count.should == 0
@@ -208,24 +218,24 @@ describe ActsAsRevisionable do
     end
   
     it "should always store revisions whenever a record is saved if :on_update is true" do
-      record = OtherRevisionableTestModel.create(:name => "test")
+      record = OtherRevisionableTestModel.create!(:name => "test")
       record.name = "new name"
       record.save!
-      ActsAsRevisionable::RevisionRecord.count.should == 1
+      RevisionRecord2.count.should == 1
       record.store_revision do
         record.name = "newer name"
         record.save!
       end
-      ActsAsRevisionable::RevisionRecord.count.should == 2
+      RevisionRecord2.count.should == 2
     end
   
     it "should only store revisions when a record is destroyed in a store_revision block" do
-      record_1 = RevisionableTestModel.create(:name => "test")
+      record_1 = RevisionableTestModel.create!(:name => "test")
       record_1.store_revision do
         record_1.name = "newer name"
         record_1.save!
       end
-      record_2 = RevisionableTestModel.create(:name => "test")
+      record_2 = RevisionableTestModel.create!(:name => "test")
       record_2.store_revision do
         record_2.name = "newer name"
         record_2.save!
@@ -240,12 +250,12 @@ describe ActsAsRevisionable do
     end
   
     it "should always store revisions whenever a record is destroyed if :on_destroy is true" do
-      record_1 = ActsAsRevisionable::RevisionableNamespaceModel.create(:name => "test")
+      record_1 = ActsAsRevisionable::RevisionableNamespaceModel.create!(:name => "test")
       record_1.store_revision do
         record_1.name = "newer name"
         record_1.save!
       end
-      record_2 = ActsAsRevisionable::RevisionableNamespaceModel.create(:name => "test")
+      record_2 = ActsAsRevisionable::RevisionableNamespaceModel.create!(:name => "test")
       record_2.store_revision do
         record_2.name = "newer name"
         record_2.save!
@@ -260,22 +270,25 @@ describe ActsAsRevisionable do
     end
   
     it "should be able to create a revision record" do
-      record_1 = RevisionableTestModel.create(:name => "test")
+      record_1 = RevisionableTestModel.create!(:name => "test")
       ActsAsRevisionable::RevisionRecord.count.should == 0
       record_1.create_revision!
       ActsAsRevisionable::RevisionRecord.count.should == 1
     end
   
-    it "should yield to the label proc when creating a revision record" do
-      record_1 = OtherRevisionableTestModel.create(:name => "test")
-      ActsAsRevisionable::RevisionRecord.count.should == 0
+    it "should set metadata on the revison when creating a revision record" do
+      record_1 = OtherRevisionableTestModel.create!(:name => "test", :updated_by => "dude")
+      RevisionRecord2.count.should == 0
       record_1.create_revision!
-      ActsAsRevisionable::RevisionRecord.count.should == 1
-      record_1.last_revision.label.should == "name was 'test'"
+      RevisionRecord2.count.should == 1
+      revision = record_1.last_revision
+      revision.label.should == "name was 'test'"
+      revision.updated_by.should == "dude"
+      revision.version.should == 1
     end
   
     it "should not create a revision entry if revisioning is disabled" do
-      record = RevisionableTestModel.create(:name => "test")
+      record = RevisionableTestModel.create!(:name => "test")
       ActsAsRevisionable::RevisionRecord.count.should == 0
       record.store_revision do
         record.name = "new name"
@@ -292,7 +305,7 @@ describe ActsAsRevisionable do
     end
   
     it "should truncate the revisions when new ones are created" do
-      record = RevisionableTestModel.create(:name => "test")
+      record = RevisionableTestModel.create!(:name => "test")
       5.times do |i|
         record.store_revision do
           record.update_attribute(:name, "name #{i}")
@@ -512,8 +525,8 @@ describe ActsAsRevisionable do
     end
   
     it "should restore a record with has_and_belongs_to_many associations" do
-      other_1 = NonRevisionableTestModel.create(:name => 'one')
-      other_2 = NonRevisionableTestModel.create(:name => 'two')
+      other_1 = NonRevisionableTestModel.create!(:name => 'one')
+      other_2 = NonRevisionableTestModel.create!(:name => 'two')
       model = RevisionableTestModel.new(:name => 'test')
       model.non_revisionable_test_models = [other_1, other_2]
       model.store_revision do
@@ -525,7 +538,7 @@ describe ActsAsRevisionable do
   
       model.name = 'new_name'
       other_1.name = '111'
-      other_3 = NonRevisionableTestModel.create(:name => '333')
+      other_3 = NonRevisionableTestModel.create!(:name => '333')
       model.store_revision do
         model.non_revisionable_test_models = [other_1, other_3]
         other_1.save!
@@ -667,7 +680,7 @@ describe ActsAsRevisionable do
   
   context "cleaning up revisions" do
     it "should destroy revisions if :dependent => :keep was not specified" do
-      model = OtherRevisionableTestModel.create(:name => 'test')
+      model = OtherRevisionableTestModel.create!(:name => 'test')
       ActsAsRevisionable::RevisionRecord.count.should == 0
   
       model.name = 'new_name'
@@ -675,11 +688,11 @@ describe ActsAsRevisionable do
         model.save!
       end
       model.reload
-      ActsAsRevisionable::RevisionRecord.count.should == 1
+      RevisionRecord2.count.should == 1
       model.name.should == 'new_name'
   
       model.destroy
-      ActsAsRevisionable::RevisionRecord.count.should == 0
+      RevisionRecord2.count.should == 0
     end
   
     it "should not destroy revisions if :dependent => :keep was specified" do
@@ -704,7 +717,7 @@ describe ActsAsRevisionable do
     end
     
     it "should empty the trash by deleting all revisions for records that have been deleted for a specified period" do
-      record_1 = ActsAsRevisionable::RevisionableNamespaceModel.create(:name => 'test')
+      record_1 = ActsAsRevisionable::RevisionableNamespaceModel.create!(:name => 'test')
       record_1.store_revision do
         record_1.update_attribute(:name, "new")
       end
@@ -714,7 +727,7 @@ describe ActsAsRevisionable do
       record_1.store_revision do
         record_1.destroy
       end
-      record_2 = ActsAsRevisionable::RevisionableNamespaceModel.create(:name => 'test 2')
+      record_2 = ActsAsRevisionable::RevisionableNamespaceModel.create!(:name => 'test 2')
       record_2.store_revision do
         record_2.update_attribute(:name, "new 2")
       end

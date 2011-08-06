@@ -46,18 +46,17 @@ module ActsAsRevisionable
 
       # Create the table to store revision records.
       def create_table
-        connection.create_table :revision_records do |t|
+        connection.create_table table_name do |t|
           t.string :revisionable_type, :null => false, :limit => 100
           t.integer :revisionable_id, :null => false
           t.integer :revision, :null => false
           t.binary :data, :limit => (connection.adapter_name.match(/mysql/i) ? 5.megabytes : nil)
           t.timestamp :created_at, :null => false
           t.boolean :trash, :default => false
-          t.string :label, :limit => 255, :null => true
         end
         
-        connection.add_index :revision_records, :revisionable_id, :name => "revision_record_id"
-        connection.add_index :revision_records, [:revisionable_type, :created_at, :trash], :name => "revisionable_type_and_created_at"
+        connection.add_index table_name, :revisionable_id, :name => "#{table_name}_id"
+        connection.add_index table_name, [:revisionable_type, :created_at, :trash], :name => "#{table_name}_type_and_created_at"
       end
       
       # Update a version 1.0.x table to the latest version. This method only needs to be called
@@ -65,9 +64,8 @@ module ActsAsRevisionable
       def update_version_1_table
         # Added in version 1.1.0
         connection.add_column(:revision_records, :trash, :boolean, :default => false)
-        connection.add_column(:revision_records, :label, :string, :limit => 255, :null => true)
-        connection.add_index :revision_records, :revisionable_id, :name => "revision_record_id"
-        connection.add_index :revision_records, [:revisionable_type, :created_at, :trash], :name => "revisionable_type_and_created_at"
+        connection.add_index :revision_records, :revisionable_id, :name => "#{table_name}_id"
+        connection.add_index :revision_records, [:revisionable_type, :created_at, :trash], :name => "#{table_name}_type_and_created_at"
 
         # Removed in 1.1.0
         connection.remove_index(:revision_records, :name => "revisionable")

@@ -118,7 +118,7 @@ describe ActsAsRevisionable::RevisionRecord do
   end
 
   it "should set the revision number before it creates the record" do
-    record = TestRevisionableRecord.create(:name => "test")
+    record = TestRevisionableRecord.create!(:name => "test")
     revision1 = ActsAsRevisionable::RevisionRecord.new(record)
     revision1.save!
     revision2 = ActsAsRevisionable::RevisionRecord.new(record)
@@ -178,9 +178,9 @@ describe ActsAsRevisionable::RevisionRecord do
 
   it "should serialize all revisionable has_many_and_belongs_to_many associations" do
     original = TestRevisionableRecord.new(:name => 'revision', :value => 1)
-    other_1 = OtherRevisionableRecord.create(:name => "other 1")
-    other_2 = OtherRevisionableRecord.create(:name => "other 2")
-    other_3 = OtherRevisionableRecord.create(:name => "other 3")
+    other_1 = OtherRevisionableRecord.create!(:name => "other 1")
+    other_2 = OtherRevisionableRecord.create!(:name => "other 2")
+    other_3 = OtherRevisionableRecord.create!(:name => "other 3")
     original.other_revisionable_records << other_1
     original.other_revisionable_records << other_2
     original.other_revisionable_records << other_3
@@ -311,9 +311,9 @@ describe ActsAsRevisionable::RevisionRecord do
   end
 
   it "should be able to restore the has_and_belongs_to_many associations" do
-    other_1 = OtherRevisionableRecord.create(:name => "other 1")
-    other_2 = OtherRevisionableRecord.create(:name => "other 2")
-    other_3 = OtherRevisionableRecord.create(:name => "other 3")
+    other_1 = OtherRevisionableRecord.create!(:name => "other 1")
+    other_2 = OtherRevisionableRecord.create!(:name => "other 2")
+    other_3 = OtherRevisionableRecord.create!(:name => "other 3")
     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     record = TestRevisionableRecord.new
     revision.send(:restore_association, record, :other_revisionable_records, [other_1.id, other_2.id, other_3.id])
@@ -418,7 +418,7 @@ describe ActsAsRevisionable::RevisionRecord do
   it "should really save the revision records to the database and restore without any mocking" do
     ActsAsRevisionable::RevisionRecord.count.should == 0
 
-    original = TestRevisionableRecord.create(:name => 'revision 1', :value => 100)
+    original = TestRevisionableRecord.create!(:name => 'revision 1', :value => 100)
     ActsAsRevisionable::RevisionRecord.new(original).save!
     first_revision = ActsAsRevisionable::RevisionRecord.first
     original.name = 'revision 2'
@@ -443,19 +443,19 @@ describe ActsAsRevisionable::RevisionRecord do
   end
   
   it "should delete revisions for models in a class that no longer exist if they are older than a specified number of seconds" do
-    record_1 = TestRevisionableRecord.create(:name => 'record_1')
+    record_1 = TestRevisionableRecord.create!(:name => 'record_1')
     record_2 = TestRevisionableAssociationLegacyRecord.create!(:name => 'record_2')
     record_2.id = record_1.id
     record_2.save!
-    revision_0 = ActsAsRevisionable::RevisionRecord.create(record_1)
-    revision_1 = ActsAsRevisionable::RevisionRecord.create(record_1)
+    revision_0 = ActsAsRevisionable::RevisionRecord.create!(record_1)
+    revision_1 = ActsAsRevisionable::RevisionRecord.create!(record_1)
     revision_1.trash!
-    revision_2 = ActsAsRevisionable::RevisionRecord.create(record_2)
+    revision_2 = ActsAsRevisionable::RevisionRecord.create!(record_2)
     revision_2.trash!
-    revision_3 = ActsAsRevisionable::RevisionRecord.create(TestRevisionableRecord.create(:name => 'record_3'))
+    revision_3 = ActsAsRevisionable::RevisionRecord.create!(TestRevisionableRecord.create!(:name => 'record_3'))
     now = Time.now
     Time.stub(:now => now + 60)
-    revision_4 = ActsAsRevisionable::RevisionRecord.create(TestRevisionableRecord.create(:name => 'record_4'))
+    revision_4 = ActsAsRevisionable::RevisionRecord.create!(TestRevisionableRecord.create!(:name => 'record_4'))
     revision_4.trash!
     ActsAsRevisionable::RevisionRecord.count.should == 5
     ActsAsRevisionable::RevisionRecord.empty_trash(TestRevisionableRecord, 30)

@@ -53,6 +53,8 @@ Note that the table definition changed from version 1.0.x to 1.1.x. If you origi
 
   ActsAsRevisionable::RevisionRecord.update_version_1_table
 
+As of version 1.2, you can customize the RevisionRecord model by adding your own columns or even create a subclass of RevisionRecord that uses its own table. See the documentation in ActsAsRevisionable for more details.
+
 == Destroying
 
 By default, the revision history of a record is destroyed along with the record. If you'd like to keep the history and be able to restore deleted records, then you can specify <tt>:dependent => :keep, :on_destroy => true</tt> in options of the +acts_as_revisionable+ call. This will keep the revision records and also automatically wrap all destroy calls in a +store_revision+ block. It is highly recommended that you turn on these options.
