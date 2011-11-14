@@ -217,7 +217,6 @@ module ActsAsRevisionable
                 truncate_revisions!
               end
             rescue => e
-              puts e
               logger.warn(e) if logger
             end
             
@@ -235,7 +234,6 @@ module ActsAsRevisionable
             begin
               revision.destroy
             rescue => e
-              puts e
               logger.warn(e) if logger
             end
           end
