@@ -57,7 +57,6 @@ module ActsAsRevisionable
       acts_as_revisionable_options[:class_name] = acts_as_revisionable_options[:class_name].name if acts_as_revisionable_options[:class_name].is_a?(Class)
       extend ClassMethods
       include InstanceMethods
-      class_name = 
       class_name = acts_as_revisionable_options[:class_name].to_s if acts_as_revisionable_options[:class_name]
       has_many_options = {:as => :revisionable, :order => 'revision DESC', :class_name => class_name}
       has_many_options[:dependent] = :destroy unless options[:dependent] == :keep
@@ -245,9 +244,10 @@ module ActsAsRevisionable
     
     # Create a revision record based on this record and save it to the database.
     def create_revision!
-      revision = revision_record_class.new(self, acts_as_revisionable_options[:encoding])
-      if self.acts_as_revisionable_options[:meta].is_a?(Hash)
-        self.acts_as_revisionable_options[:meta].each do |attribute, value|
+      revision_options = self.class.acts_as_revisionable_options
+      revision = revision_record_class.new(self, revision_options[:encoding])
+      if revision_options[:meta].is_a?(Hash)
+        revision_options[:meta].each do |attribute, value|
           case value
           when Symbol
             value = self.send(value)
@@ -263,7 +263,7 @@ module ActsAsRevisionable
     
     # Truncate the number of revisions kept for this record. Available options are :limit and :minimum_age.
     def truncate_revisions!(options = nil)
-      options = {:limit => acts_as_revisionable_options[:limit], :minimum_age => acts_as_revisionable_options[:minimum_age]} unless options
+      options = {:limit => self.class.acts_as_revisionable_options[:limit], :minimum_age => self.class.acts_as_revisionable_options[:minimum_age]} unless options
       revision_record_class.truncate_revisions(self.class, self.id, options)
     end
     
