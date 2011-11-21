@@ -4,14 +4,14 @@
 # -*- encoding: utf-8 -*-
 
 Gem::Specification.new do |s|
-  s.name = %q{acts_as_revisionable}
+  s.name = "acts_as_revisionable"
   s.version = "1.2.0"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["Brian Durand"]
-  s.date = %q{2011-08-05}
-  s.description = %q{ActiveRecord extension that provides revision support so that history can be tracked and changes can be reverted. Emphasis for this plugin versus similar ones is including associations, saving on storage, and extensibility of the model.}
-  s.email = %q{brian@embellishedvisions.com}
+  s.date = "2011-11-21"
+  s.description = "ActiveRecord extension that provides revision support so that history can be tracked and changes can be reverted. Emphasis for this plugin versus similar ones is including associations, saving on storage, and extensibility of the model."
+  s.email = "brian@embellishedvisions.com"
   s.extra_rdoc_files = [
     "README.rdoc"
   ]
@@ -26,33 +26,21 @@ Gem::Specification.new do |s|
     "spec/spec_helper.rb",
     "spec/version_1_1_upgrade_spec.rb"
   ]
-  s.homepage = %q{http://github.com/bdurand/acts_as_revisionable}
+  s.homepage = "http://github.com/bdurand/acts_as_revisionable"
   s.require_paths = ["lib"]
-  s.rubygems_version = %q{1.5.2}
-  s.summary = %q{ActiveRecord extension that provides revision support so that history can be tracked and changes can be reverted.}
+  s.rubygems_version = "1.8.10"
+  s.summary = "ActiveRecord extension that provides revision support so that history can be tracked and changes can be reverted."
 
   if s.respond_to? :specification_version then
     s.specification_version = 3
 
     if Gem::Version.new(Gem::VERSION) >= Gem::Version.new('1.2.0') then
-      s.add_runtime_dependency(%q<rake>, [">= 0"])
-      s.add_runtime_dependency(%q<rspec>, [">= 2.6.0"])
-      s.add_runtime_dependency(%q<activerecord>, ["~> 2.3.9"])
-      s.add_runtime_dependency(%q<activesupport>, ["~> 2.3.9"])
-      s.add_runtime_dependency(%q<composite_primary_keys>, [">= 0"])
-      s.add_runtime_dependency(%q<sqlite3>, ["~> 1.3.4"])
       s.add_runtime_dependency(%q<activerecord>, [">= 2.3.9"])
       s.add_development_dependency(%q<composite_primary_keys>, [">= 0"])
       s.add_development_dependency(%q<sqlite3>, [">= 0"])
       s.add_development_dependency(%q<rspec>, [">= 2.0.0"])
       s.add_development_dependency(%q<jeweler>, [">= 0"])
     else
-      s.add_dependency(%q<rake>, [">= 0"])
-      s.add_dependency(%q<rspec>, [">= 2.6.0"])
-      s.add_dependency(%q<activerecord>, ["~> 2.3.9"])
-      s.add_dependency(%q<activesupport>, ["~> 2.3.9"])
-      s.add_dependency(%q<composite_primary_keys>, [">= 0"])
-      s.add_dependency(%q<sqlite3>, ["~> 1.3.4"])
       s.add_dependency(%q<activerecord>, [">= 2.3.9"])
       s.add_dependency(%q<composite_primary_keys>, [">= 0"])
       s.add_dependency(%q<sqlite3>, [">= 0"])
@@ -60,12 +48,6 @@ Gem::Specification.new do |s|
       s.add_dependency(%q<jeweler>, [">= 0"])
     end
   else
-    s.add_dependency(%q<rake>, [">= 0"])
-    s.add_dependency(%q<rspec>, [">= 2.6.0"])
-    s.add_dependency(%q<activerecord>, ["~> 2.3.9"])
-    s.add_dependency(%q<activesupport>, ["~> 2.3.9"])
-    s.add_dependency(%q<composite_primary_keys>, [">= 0"])
-    s.add_dependency(%q<sqlite3>, ["~> 1.3.4"])
     s.add_dependency(%q<activerecord>, [">= 2.3.9"])
     s.add_dependency(%q<composite_primary_keys>, [">= 0"])
     s.add_dependency(%q<sqlite3>, [">= 0"])
