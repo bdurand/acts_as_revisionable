@@ -143,7 +143,7 @@ describe ActsAsRevisionable do
 
   context "injected methods" do
     it "should be able to inject revisionable behavior onto ActiveRecord::Base" do
-      ActiveRecord::Base.included_modules.should include(ActsAsRevisionable)
+      ActiveRecord::Base.should respond_to(:acts_as_revisionable)
     end
   
     it "should add as has_many :record_revisions association" do
@@ -275,8 +275,8 @@ describe ActsAsRevisionable do
       record_1.create_revision!
       ActsAsRevisionable::RevisionRecord.count.should == 1
     end
-  
-    it "should set metadata on the revison when creating a revision record" do
+
+    it "should set metadata on the revison when creating a revision record using a complex attribute to value mapping" do
       record_1 = OtherRevisionableTestModel.create!(:name => "test", :updated_by => "dude")
       RevisionRecord2.count.should == 0
       record_1.create_revision!
@@ -285,6 +285,38 @@ describe ActsAsRevisionable do
       revision.label.should == "name was 'test'"
       revision.updated_by.should == "dude"
       revision.version.should == 1
+    end
+
+    it "should set metadata on the revison when creating a revision record using a simply string to define a method to copy" do
+      meta_value = OtherRevisionableTestModel.acts_as_revisionable_options[:meta]
+      begin
+        OtherRevisionableTestModel.acts_as_revisionable_options[:meta] = "label"
+        record_1 = OtherRevisionableTestModel.create!(:name => "test", :updated_by => "dude")
+        record_1.stub!(:label => "this is a label")
+        record_1.create_revision!
+        revision = record_1.last_revision
+        revision.label.should == "this is a label"
+        revision.updated_by.should == nil
+        revision.version.should == nil
+      ensure
+        OtherRevisionableTestModel.acts_as_revisionable_options[:meta] = meta_value
+      end
+    end
+
+    it "should set metadata on the revison when creating a revision record using an array of attribute names to copy" do
+      meta_value = OtherRevisionableTestModel.acts_as_revisionable_options[:meta]
+      begin
+        OtherRevisionableTestModel.acts_as_revisionable_options[:meta] = [:label, "version"]
+        record_1 = OtherRevisionableTestModel.create!(:name => "test", :updated_by => "dude")
+        record_1.stub!(:label => "this is a label", :version => 100)
+        record_1.create_revision!
+        revision = record_1.last_revision
+        revision.label.should == "this is a label"
+        revision.updated_by.should == nil
+        revision.version.should == 100
+      ensure
+        OtherRevisionableTestModel.acts_as_revisionable_options[:meta] = meta_value
+      end
     end
   
     it "should not create a revision entry if revisioning is disabled" do

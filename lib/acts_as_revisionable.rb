@@ -5,10 +5,6 @@ module ActsAsRevisionable
   
   autoload :RevisionRecord, File.expand_path('../acts_as_revisionable/revision_record', __FILE__)
   
-  def self.included(base)
-    base.extend(ActsMethods)
-  end
-  
   module ActsMethods
     # Calling acts_as_revisionable will inject the revisionable behavior into the class. Specifying a :limit option
     # will limit the number of revisions that are kept per record. Specifying :minimum_age will ensure that revisions are
@@ -38,6 +34,11 @@ module ActsAsRevisionable
     #     :label => lambda{|record| "Updated by #{record.updated_by} at #{record.updated_at}"},
     #     :version => 1
     #   }
+    #
+    # As a shortcut, you can can also just pass an attribute name or array of attribute names to copy to the revision
+    # record.
+    #
+    #   acts_as_revisionable :meta => :updated_by
     #
     # The values to the <tt>:meta</tt> hash can be either symbols or Procs. If it is a symbol, the method
     # so named will be called on the record being revisioned. If it is a Proc, it will be called with the
@@ -248,14 +249,14 @@ module ActsAsRevisionable
       revision = revision_record_class.new(self, revision_options[:encoding])
       if revision_options[:meta].is_a?(Hash)
         revision_options[:meta].each do |attribute, value|
-          case value
-          when Symbol
-            value = self.send(value)
-          when Proc
-            value = value.call(self)
-          end
-          revision.send("#{attribute}=", value)
+          set_revision_meta_attribute(revision, attribute, value)
         end
+      elsif revision_options[:meta].is_a?(Array)
+        revision_options[:meta].each do |attribute|
+          set_revision_meta_attribute(revision, attribute, attribute.to_sym)
+        end
+      elsif revision_options[:meta]
+        set_revision_meta_attribute(revision, revision_options[:meta], revision_options[:meta].to_sym)
       end
       revision.save!
       return revision
@@ -299,7 +300,18 @@ module ActsAsRevisionable
         update_without_revision
       end
     end
+    
+    # Set an attribute based on a meta argument
+    def set_revision_meta_attribute(revision, attribute, value)
+      case value
+      when Symbol
+        value = self.send(value)
+      when Proc
+        value = value.call(self)
+      end
+      revision.send("#{attribute}=", value)
+    end
   end
 end
 
-ActiveRecord::Base.send(:include, ActsAsRevisionable)
+ActiveRecord::Base.extend(ActsAsRevisionable::ActsMethods)
