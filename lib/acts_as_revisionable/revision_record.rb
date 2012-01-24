@@ -7,7 +7,7 @@ module ActsAsRevisionable
     before_create :set_revision_number
     attr_reader :data_encoding
 
-    set_table_name :revision_records
+    self.table_name = :revision_records
 
     class << self
       # Find a specific revision record.
@@ -204,7 +204,12 @@ module ActsAsRevisionable
       begin
         if reflection.macro == :has_many
           if association_attributes.kind_of?(Array)
-            record.send("#{association}=", [])
+            # Pop all the associated records to remove all records. In Rails 3.2 setting the value of the list
+            # will immediately affect the database
+            records = record.send(association)
+            while records.pop do
+              # no-op
+            end
             association_attributes.each do |attrs|
               restore_association(record, association, attrs)
             end

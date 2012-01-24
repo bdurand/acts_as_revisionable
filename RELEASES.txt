@@ -1,3 +1,10 @@
+1.2.2
+ - Remove deprecation warning in Rails 3.2
+
+1.2.1
+ - Add nicer syntax for copying attributes to revisions
+ - Bug fixes
+
 1.2.0
  - Removed label column from revision_records table
  - Added support for customizing and subclassing RevisionRecord

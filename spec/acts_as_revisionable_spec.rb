@@ -89,7 +89,7 @@ describe ActsAsRevisionable do
     end
     
     class RevisionRecord2 < ActsAsRevisionable::RevisionRecord
-      set_table_name "revision_records_2"
+      self.table_name = "revision_records_2"
       create_table
       connection.add_column(table_name, :label, :string)
       connection.add_column(table_name, :updated_by, :string)
@@ -113,7 +113,7 @@ describe ActsAsRevisionable do
           t.column :type_name, :string
         end unless table_exists?
 
-        set_inheritance_column :type_name
+        self.inheritance_column = :type_name
         acts_as_revisionable :dependent => :keep, :on_destroy => true, :encoding => :xml
         self.store_full_sti_class = false
       end
@@ -491,7 +491,7 @@ describe ActsAsRevisionable do
       restored.many_other_things.collect{|t| t.name}.sort.should == ['many_other_thing_3', 'new_many_other_thing_1']
       restored.valid?.should == true
   
-      # make the restore to memory didn't affect the database
+      # make sure the restore to memory didn't affect the database
       model.reload
       model.name.should == 'new_name'
       model.many_things(true).collect{|t| t.name}.sort.should == ['many_thing_3', 'new_many_thing_1']

@@ -23,6 +23,8 @@ describe ActsAsRevisionable::RevisionRecord do
         t.column :value, :integer
         t.column :test_revisionable_record_id, :integer
       end unless table_exists?
+      
+      self.primary_key = nil if ActiveRecord::VERSION::MAJOR >= 3 && ActiveRecord::VERSION::MINOR > 0
     end
     
     class TestRevisionableAssociationComposite < ActiveRecord::Base
@@ -304,8 +306,7 @@ describe ActsAsRevisionable::RevisionRecord do
   it "should be able to restore the has_one associations" do
     revision = ActsAsRevisionable::RevisionRecord.new(TestRevisionableRecord.new)
     record = TestRevisionableRecord.new
-    revision.send(:restore_association, record, :one_association, {'id' => 1, 'name' => 'one', 'value' => 1})
-    record.one_association.id.should == 1
+    revision.send(:restore_association, record, :one_association, {'name' => 'one', 'value' => 1})
     record.one_association.name.should == 'one'
     record.one_association.value.should == 1
   end
